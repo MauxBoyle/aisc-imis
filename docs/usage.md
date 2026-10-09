@@ -23,6 +23,23 @@ Or as a Python module:
 uv run python -m aisc_imis
 ```
 
+## iMIS reference tables
+
+Generate the reusable reference CSV files from a local iMIS company export:
+
+```bash
+uv run python scripts/generate_imis_reference.py data/raw/All_iMIS_Companies_261009.csv
+```
+
+By default, the command writes to `data/reference/`; use `--output-dir` to
+choose a different destination. `member_types.csv` and `statuses.csv` begin
+with `TBD` meanings. Replace those values as their meanings become known; later
+generation preserves existing meanings and adds newly observed codes as `TBD`.
+
+`data/raw/` is ignored because it holds local source exports. The generated
+tables in `data/reference/` are committed so scripts and future interfaces can
+use the same definitions.
+
 ## Environment Variables
 
 | Variable | Default | Description |
