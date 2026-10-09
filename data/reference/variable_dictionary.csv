@@ -1,0 +1,10 @@
+source_column,data_type,reference_table,description
+Is Company,boolean,boolean_values.csv,Whether the record is a company.
+Member Type,code,member_types.csv,Current member type code.
+Previous Member Type,code,member_types.csv,Previous member type code; blank means no recorded previous type.
+iMIS Id,text,,iMIS record identifier.
+Company,text,,Company name.
+Full Address,text,,Full mailing address.
+Is Member,boolean,boolean_values.csv,Whether the record is a member.
+Major Key,text,,iMIS major key.
+Status,code,statuses.csv,Status code.
