@@ -40,6 +40,40 @@ generation preserves existing meanings and adds newly observed codes as `TBD`.
 tables in `data/reference/` are committed so scripts and future interfaces can
 use the same definitions.
 
+## iMIS duplicate-company reports
+
+Find likely duplicate companies and write one timestamped CSV and PDF report
+per run:
+
+```bash
+uv run python scripts/find_imis_duplicates.py
+uv run python scripts/find_imis_duplicates.py data/raw/All_iMIS_Companies_261009.csv --mode act
+```
+
+The first command uses the default input file
+`data/raw/All_iMIS_Companies_261009.csv`, looks for all candidates, and writes
+reports to `data/processed/`. The `act` mode keeps only pairs where either row
+has `Member Type` equal to `ACT`.
+
+Use `--output-dir` to choose a different report location. Matching defaults to
+an address score of at least `90` and a company-name score of at least `85`;
+change those with `--address-threshold` and `--name-threshold`.
+
+The matcher compares only companies with the same extracted five-digit ZIP
+code, so records without a ZIP (or with different ZIPs) are not compared. Treat
+these reports as candidates for human review, never as automatic merge
+instructions.
+
+!!! warning "Intentional Test-account exclusion"
+
+    Every company whose name contains `Test`, regardless of capitalization, is
+    excluded before matching. This may omit a genuine company; the filter is an
+    intentional choice to keep test accounts out of reports. Review or remove
+    this rule if it becomes a problem later.
+
+Both `data/raw/` and `data/processed/` are ignored local operational data
+directories.
+
 ## Environment Variables
 
 | Variable | Default | Description |
