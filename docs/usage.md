@@ -74,6 +74,48 @@ instructions.
 Both `data/raw/` and `data/processed/` are ignored local operational data
 directories.
 
+## Certified Domestic Fabricator reconciliation
+
+Compare a Salesforce Certified Domestic Fabricator CSV with an iMIS company
+CSV and write timestamped investigation reports:
+
+```bash
+uv run python scripts/reconcile_certified_fabricators.py \
+  data/raw/salesforce_certified_fabricators.csv \
+  data/raw/All_iMIS_Companies_261009.csv
+```
+
+Both paths are required. Salesforce input needs `Name`, `BillingStreet`,
+`BillingCity`, `BillingState`, `BillingPostalCode`, `BillingCountry`,
+`Certification_ID__c`, `IMISID__c`, and `InIMIS__c`. API-style exports using
+`Id` and `Certified_Fabricator__c` are also supported. iMIS input needs `iMIS Id`,
+`Company`, `Full Address`, `Member Type`, and `Status`.
+
+The report column `salesforce_active_for_member_discount` comes from Salesforce
+`Is_active_in_IMIS_for_Member_Discount__c`. `InIMIS__c` remains the source used
+for the one-to-one membership-status comparison.
+
+Reports go to `data/processed/` by default; use `--output-dir` to choose a
+different folder. Address and name thresholds default to `90` and `50`, and
+can be changed with `--address-threshold` and `--name-threshold`.
+
+Every Salesforce record is reported. A blank company name or address cannot
+produce a candidate. Results are grouped into `none`, `one`, and `many`; the
+CSV has one row for each Salesforce/candidate pairing, or one blank-candidate
+row for no match. The matcher does **not** filter by ZIP code, so records with
+different ZIP codes—or no ZIP code—can match. In contrast, the iMIS
+duplicate-company report requires matching five-digit ZIP codes and skips
+records without one.
+
+For exactly one candidate only, the report compares `IMISID__c` to `iMIS Id`
+and checks the Salesforce `InIMIS__c` status. Salesforce `True` matches only iMIS `ACT` /
+`A`; Salesforce `False` matches any other iMIS Member Type/Status combination.
+These fields are unassessed for no-match and multiple-match groups.
+
+Before fuzzy address comparison, the country variants `United States`, `USA`,
+and `US` are removed. This prevents an otherwise identical address from losing
+points when a country is present in only one source.
+
 ## Environment Variables
 
 | Variable | Default | Description |
