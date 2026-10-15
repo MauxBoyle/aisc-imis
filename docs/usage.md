@@ -105,6 +105,32 @@ and candidate-key aggregates, and date findings, but never member rows or
 source cell values. The history source is observed snapshot coverage, not a
 claim of complete membership history.
 
+## Cross-source ingestion findings
+
+Create a local review report from all four membership adapters:
+
+```bash
+uv run python scripts/report_ingestion_findings.py \
+  --current data/processed/CSContactBasic_current.csv \
+  --history data/processed/CSContactBasic_history.csv \
+  --membership-changes data/raw/membership_changes.csv \
+  --activity-history data/raw/activity_history.csv
+```
+
+All four input paths are required. The command reads `data/reference/` by
+default and writes `ingestion-findings.json` and `ingestion-findings.md` to
+`data/processed/ingestion-findings/`; use `--reference-directory` and
+`--output-directory` to override those locations.
+
+The JSON report is machine-readable and assigns a deterministic full SHA-256
+ID to each review item. Its Markdown companion is for human review. It groups
+structural rejections, partial parsing, duplicate keys, conflicting evidence,
+unknown or unresolved codes, and other source/reference problems without
+changing any input. A finding does not make the command fail: rows accepted by
+an adapter remain available for later processing even if they also have a
+finding. Both outputs include raw source-row evidence and may contain private
+member data, so keep them local and uncommitted.
+
 ## Membership date semantics
 
 Generate the aggregate-only date-semantics report for the same four membership
