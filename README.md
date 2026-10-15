@@ -208,6 +208,30 @@ they remain payment evidence only and never create a membership transition or
 status. Keep source CSVs, adapter results, and finding exports local and
 uncommitted because they may contain private operational data.
 
+## Cross-source ingestion findings report
+
+Create one local review report from the current, historical,
+membership-change, and activity-history adapters:
+
+```bash
+uv run python scripts/report_ingestion_findings.py \
+  --current data/processed/CSContactBasic_current.csv \
+  --history data/processed/CSContactBasic_history.csv \
+  --membership-changes data/raw/membership_changes.csv \
+  --activity-history data/raw/activity_history.csv
+```
+
+The command reads reviewed tables from `data/reference/` by default and writes
+`ingestion-findings.json` and `ingestion-findings.md` to
+`data/processed/ingestion-findings/`. Use `--reference-directory` or
+`--output-directory` to choose local alternatives. The JSON report gives every
+finding a deterministic SHA-256 ID, so identical input and reference data
+produce the same IDs. Findings are review output, not a command failure:
+structurally accepted rows continue to later processing even if they have a
+bad parsed value, an unknown code, or a duplicate-key finding. Both reports
+include raw source-row evidence and can contain private member information, so
+they remain local and uncommitted.
+
 ## Membership date semantics
 
 Create or refresh the aggregate-only date profiling report from authorized local
