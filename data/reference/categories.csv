@@ -1,0 +1,44 @@
+code,display_name,reporting_group
+AM,TBD,TBD
+BEND,Bender,Bender/ Roller
+BOLT,Bolt Manufacturer,Other
+CONS,TBD,TBD
+COTA,Coating Applier,Other
+COTM,Supplier,Other
+DECK,TBD,TBD
+DERC,Erector,Erector
+DET,TBD,TBD
+DET1,Detailer,Other
+DET10,Detailer,Other
+DET2,TBD,TBD
+DET3,TBD,TBD
+DET4,TBD,TBD
+EQPM,Equipment Manufacturer,Other
+EQPU,Equipment Dealer,Other
+EREC,Erector,TBD
+FAB,TBD,TBD
+IND,TBD,TBD
+IR,TBD,TBD
+JOIS,TBD,TBD
+LEREC,TBD,TBD
+MBMM,TBD,TBD
+MILL,Mill,Mill
+MKTP,TBD,TBD
+NSF,Non-structural Fabricator,Fabricator
+PROF1,TBD,Professional
+PROF2,TBD,Professional
+PROF3,TBD,Professional
+PROF4,TBD,Professional
+PROF5,TBD,Professional
+PROF6,TBD,Professional
+PROFE,TBD,TBD
+REREC,TBD,TBD
+RETR,TBD,TBD
+SAFE,Supplier,Other
+SOFT,Software,Other
+SSUPP,System Supplier,Other
+STAFF,TBD,TBD
+SUPP,Supplier,Other
+SVC,TBD,TBD
+TOWER,TBD,TBD
+WELD,Detailer,Other
