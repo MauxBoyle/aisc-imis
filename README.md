@@ -173,6 +173,27 @@ It does not normalize IDs to create joins; `Company ID`, company names, and the
 membership-change transaction key remain review-only unless the document says
 otherwise.
 
+## Membership lifecycle evidence taxonomy
+
+Create or refresh the aggregate-only lifecycle evidence inventory and its
+version-controlled reviewer matrix from the four authorized local exports:
+
+```bash
+uv run python scripts/generate_membership_lifecycle_taxonomy.py
+```
+
+The generated [lifecycle taxonomy](docs/membership-lifecycle-taxonomy.md)
+describes state observations, lifecycle-event candidates, payment activity,
+unknown activity codes, and metadata. Its companion
+`data/reference/lifecycle-evidence-taxonomy.csv` preserves reviewer-provided
+code meanings and countability notes when regenerated. Names, IDs, notes,
+descriptions, payment values, and transaction identifiers are never published;
+the transaction field is aggregate-only. The draft labels `joined`,
+`reinstated`, `resigned`, `expelled`, `transferred`, `corrected`, and `other
+observed` are possible inferences, not lifecycle rules. Payment evidence does
+not automatically create a countable-status transition, and all unreviewed
+meanings and countability effects remain `unknown` / `unresolved`.
+
 ```bash
 uv run python scripts/serve_docs.py
 uv run mkdocs build
