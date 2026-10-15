@@ -283,7 +283,7 @@ Membership changes,Is Company,True,1748,state observation,direct fact,unknown,un
 Membership changes,Is Company,False,10,state observation,direct fact,unknown,unresolved,
 Membership changes,Paid Through,aggregate only,88,payment activity,direct fact,unknown,unresolved,Individual values are intentionally not published.
 Activity history,A_Transaction,aggregate only,31937,metadata,direct fact,unknown,unresolved,Individual values are intentionally not published.
-Activity history,Activity Type,DUES,49604,unknown,possible inference,unknown,unresolved,
+Activity history,Activity Type,DUES,49604,payment activity,direct fact,,unresolved,Confirmed payment evidence; never a lifecycle transition.
 Activity history,Activity Type,CEU,39537,unknown,possible inference,unknown,unresolved,
 Activity history,Activity Type,ADDREG,21546,unknown,possible inference,unknown,unresolved,
 Activity history,Activity Type,WEB,10029,unknown,possible inference,unknown,unresolved,

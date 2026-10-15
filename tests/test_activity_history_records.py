@@ -82,6 +82,9 @@ def test_payment_classification_is_exposed_without_a_membership_transition(tmp_p
     assert classification.evidence_class == "payment activity"
     assert classification.draft_lifecycle_name == "unknown"
     assert classification.countability_effect == "unresolved"
+    assert "unresolved_activity_type_mapping" not in {
+        finding.code for finding in result.findings
+    }
 
 
 def test_reports_unknown_unresolved_and_conflicting_activity_type_mappings(tmp_path):
