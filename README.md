@@ -148,6 +148,13 @@ immutable, source-row validation layer used before any matching or lifecycle
 interpretation. Its fixtures contain invented values only; private source
 exports in `data/raw/` and `data/processed/` remain ignored.
 
+The same document also describes the reusable shared parsers for identifiers,
+booleans, reviewed member-type/status codes, and dates. They retain the raw
+source value beside a normalized value or structured finding. Slash-style
+numeric dates follow a month/day/year default; adapters must explicitly opt in
+to another policy and handle any ambiguity. Reviewed code meanings stay in the
+version-controlled CSVs under `data/reference/`, not in parser business rules.
+
 ## Membership date semantics
 
 Create or refresh the aggregate-only date profiling report from authorized local
