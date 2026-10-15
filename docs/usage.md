@@ -131,6 +131,13 @@ an adapter remain available for later processing even if they also have a
 finding. Both outputs include raw source-row evidence and may contain private
 member data, so keep them local and uncommitted.
 
+The report also includes provisional 2×2 state-consistency grids for pairs of
+current/snapshot indicators: reporting Member Type, `Status=A`, `Is Member=True`,
+and company versus dependent-member-type status. They expose counts for each
+combination but do not make a membership decision or change source data. These
+are temporary assumptions and must be revisited at the earliest opportunity
+before they are used to exclude members or correct records.
+
 ## Membership date semantics
 
 Generate the aggregate-only date-semantics report for the same four membership
@@ -165,9 +172,10 @@ The output is `docs/member-identifier-map.md`. It profiles `iMIS Id`, `Major
 Key`, `Company ID`, `ChangeID`, `Ordinal`, and `Sequence` using counts and
 non-reversible comparisons. Exact joins preserve leading zeroes. `Major Key`
 is parent/dependent evidence only when it exactly matches an `iMIS Id`; company
-names and `Company ID` remain review-only. The membership-change export has no
-member-level `iMIS Id`, so `ChangeID` plus `Ordinal` is a transaction key only
-and cross-source member matching needs review.
+names and `Company ID` remain review-only. In the membership-change export,
+`ChangeID` is the member's iMIS ID and `Ordinal` identifies that member's
+individual change row; together they form the candidate row key. Cross-source
+matching should still preserve the source evidence and remain reviewable.
 
 ## Membership lifecycle evidence taxonomy
 

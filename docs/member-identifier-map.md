@@ -8,7 +8,10 @@ Only comparisons listed in **Exact comparison evidence** are supported exact joi
 
 `Major Key` is parent/dependent evidence only when it exactly matches an `iMIS Id` in the same reviewed export. `Company ID` is not an automatic join key. Company names and unsupported keys are review-only.
 
-The membership-change export has no member-level `iMIS Id`. Its `ChangeID` + `Ordinal` is a transaction key only; matching those transactions to members across sources requires review.
+In the membership-change export, `ChangeID` is the member's iMIS ID and
+`Ordinal` identifies the individual change row for that member. Together they
+form the candidate row key; matching change rows to members across sources
+should still preserve source evidence and remain reviewable.
 
 ## Identifier profiling
 

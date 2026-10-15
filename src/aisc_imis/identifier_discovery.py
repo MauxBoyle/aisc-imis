@@ -238,9 +238,11 @@ def render_markdown(identifier_map: IdentifierMap) -> str:
         "`iMIS Id` in the same reviewed export. `Company ID` is not an automatic "
         "join key. Company names and unsupported keys are review-only.",
         "",
-        "The membership-change export has no member-level `iMIS Id`. Its `ChangeID` "
-        "+ `Ordinal` is a transaction key only; matching those transactions to "
-        "members across sources requires review.",
+        "In the membership-change export, `ChangeID` is the member's iMIS ID. "
+        "`Ordinal` identifies the individual change row for that member, so the "
+        "composite (`ChangeID`, `Ordinal`) is the candidate row key. Matching "
+        "change rows to members across sources should still preserve the source "
+        "evidence and remain reviewable.",
         "",
         "## Identifier profiling",
         "",

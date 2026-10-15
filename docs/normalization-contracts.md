@@ -68,7 +68,7 @@ whitespace. Other optional source columns remain available through raw fields.
 | --- | --- | --- |
 | `CurrentRecord` | `iMIS Id`, `Member Type`, `Is Company`, `Is Member`, `Last Updated` | `Status` |
 | `SnapshotObservation` | `iMIS Id`, `Member Type`, `Is Company`, `Is Member`, `Last Updated` | `Status` |
-| `MembershipChange` | `ChangeID`, `Ordinal`, `Change Type`, `Member Type`, `ChangeUpdate`, `ChangeCreated`, `Status` | `ChangeEffective` |
+| `MembershipChange` | `ChangeID` (member's iMIS ID), `Ordinal`, `Change Type`, `Member Type`, `ChangeUpdate`, `ChangeCreated`, `Status` | `ChangeEffective` |
 | `ActivityRecord` | `iMIS Id`, `Sequence`, `A_Transaction`, `Activity Type`, `Effective Date`, `Member Type`, `Is a Company` | `Transaction Date` |
 
 Use the corresponding `validate_*_record` function for one row, or a
@@ -189,9 +189,10 @@ result = read_membership_change_records(
 It returns immutable `MembershipChangeObservation` values, structural
 `ValidationRejection` values, and `IngestionFinding` values. Each accepted row
 keeps its `MembershipChange` contract with every raw named source field, source
-filename, and physical CSV row number. `ChangeID` and `Ordinal` stay text, so
-leading zeroes are not converted away. Duplicate `(ChangeID, Ordinal)` keys are
-reported for every involved row; the rows remain separate and in CSV order.
+filename, and physical CSV row number. `ChangeID` is the member's iMIS ID;
+`Ordinal` identifies the individual change row for that member. Both stay text,
+so leading zeroes are not converted away. Duplicate `(ChangeID, Ordinal)` keys
+are reported for every involved row; the rows remain separate and in CSV order.
 
 The adapter checks member type and status against the reviewed codebooks in the
 given reference directory. It reads

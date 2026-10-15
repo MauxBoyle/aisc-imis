@@ -94,5 +94,5 @@ def test_markdown_keeps_company_names_and_unsupported_keys_review_only(tmp_path)
 
     assert "secret-change" not in markdown
     assert "Private Co" not in markdown
-    assert "transaction key only" in markdown
+    assert "ChangeID` is the member's iMIS ID" in markdown
     assert "review-only" in markdown
