@@ -81,6 +81,19 @@ This writes `data/processed/CSContactBasic_current.csv` and
 `data/processed/CSContactBasic_history.csv`. If an ID has multiple rows tied at
 its newest timestamp, the command stops instead of choosing one silently.
 
+For Python code that needs to read the combined legacy evidence, use
+`read_historical_snapshot_records(csv_path, reference_directory)`. It returns
+immutable observations, rejections, and findings without changing the merge or
+inferring membership transitions. The adapter reads the reviewed coverage
+schedule in `data/reference/snapshot_dates.csv`: 2025-06-05, 2025-06-25,
+2025-06-26, 2025-07-01, 2025-07-18, 2026-03-13, 2026-06-30, 2026-07-20, and
+2026-10-14. A legacy row's derived `observation_date` is the first scheduled
+date on or after its parsed `Last Updated`; its `observation_date_basis` marks
+this as configured coverage. Neither date is proof of a membership transition.
+Raw source fields, filename, and physical CSV row number remain attached to
+each accepted observation. Keep CSV inputs and any adapter results local and
+uncommitted because they may contain private data.
+
 ## Certified Domestic Fabricator reconciliation
 
 Reconcile a Salesforce Certified Domestic Fabricator export against an iMIS

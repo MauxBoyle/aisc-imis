@@ -125,6 +125,51 @@ write an output file, or infer a lifecycle event. These observations are
 present-state evidence only: `Last Updated` is parsed source data, not a dated
 membership transition.
 
+## Historical snapshot CSV adapter
+
+`aisc_imis.historical_snapshot_records` reads the combined legacy
+`CSContactBasic` CSV while keeping it as historical evidence rather than a
+membership-event ledger:
+
+```python
+from pathlib import Path
+
+from aisc_imis.historical_snapshot_records import read_historical_snapshot_records
+
+result = read_historical_snapshot_records(
+    Path("data/processed/CSContactBasic_combined_deduplicated.csv"),
+    Path("data/reference"),
+)
+```
+
+Like the current-member adapter, it returns immutable observations, structural
+row rejections, and `IngestionFinding` values. Every accepted observation keeps
+its `SnapshotObservation` record (all raw named fields, CSV filename, and
+physical row number), and separately exposes normalized identifiers, reviewed
+codes, booleans, `Last Updated`, and optional status. Invalid values and unknown
+codes produce findings without removing an otherwise structurally valid row.
+If a data row contains more values than the header defines, those extra cells
+are retained as raw fields named `__extra_csv_value_1`,
+`__extra_csv_value_2`, and so on, alongside an incompatibility finding.
+
+The version-controlled `data/reference/snapshot_dates.csv` schedule currently
+lists coverage dates `2025-06-05`, `2025-06-25`, `2025-06-26`, `2025-07-01`,
+`2025-07-18`, `2026-03-13`, `2026-06-30`, `2026-07-20`, and `2026-10-14`.
+For a parsed legacy `Last Updated`, `observation_date` is the first configured
+date on or after that date. `observation_date_basis` explicitly identifies that
+derived value as configured coverage. It remains distinct from the parsed
+source `last_updated`; neither is a verified membership-transition date. A row
+outside the schedule (or with an unparseable update value) remains available
+with `observation_date=None` and a `missing_observation_date` finding.
+
+Repeated identical rows remain separate observations. Rows sharing normalized
+iMIS ID and parsed `Last Updated` but disagreeing on normalized state fields
+receive a finding for every involved row; the adapter does not choose between
+them. Missing required headers and incompatible CSV shapes are also reported at
+the input boundary. This adapter does not alter `combine_contact_snapshots`:
+the combined export has no original per-row run-date field, so configured
+coverage is deliberately not represented as source capture time.
+
 ## Privacy boundary
 
 The module is safe to use with authorized local source rows, but raw values can
