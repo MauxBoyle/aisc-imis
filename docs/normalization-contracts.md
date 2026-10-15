@@ -88,12 +88,50 @@ deduplicate, reconcile, or select among duplicate or contradictory rows.
 Those cases are evidence for a later, reviewed workflow—not validation errors
 to be hidden here.
 
+## Current-member CSV adapter
+
+`aisc_imis.current_member_records` is the Python-facing adapter for a confirmed
+current-state `CSContactBasic` export. It has no CLI and takes both the local
+CSV path and the reviewed reference-table directory explicitly:
+
+```python
+from pathlib import Path
+
+from aisc_imis.current_member_records import read_current_member_records
+
+result = read_current_member_records(
+    Path("data/processed/CSContactBasic_current.csv"),
+    Path("data/reference"),
+)
+```
+
+It reads CSV with UTF-8 BOM support and creates one immutable
+`CurrentMemberObservation` for every row that has the five required source
+values. Each observation retains its `CurrentRecord`, including every raw named
+CSV field, the source filename, and physical CSV row number. It separately
+normalizes the iMIS ID, member type, company/member flags, last-updated value,
+and optional status. The `member_types.csv` and `statuses.csv` tables in the
+given reference directory are required reviewed codebooks; unknown codes and
+invalid values become `IngestionFinding` entries rather than silent changes.
+
+Rows missing required values become `ValidationRejection` entries with their
+raw evidence. If required headers are missing, the adapter returns a batch-level
+finding and no partial row data. Blank `Status` is allowed and becomes `None`.
+Duplicate normalized iMIS IDs produce a finding for every row in that duplicate
+group, but all rows remain in input order.
+
+The result deliberately does not deduplicate, reconcile, select a winning row,
+write an output file, or infer a lifecycle event. These observations are
+present-state evidence only: `Last Updated` is parsed source data, not a dated
+membership transition.
+
 ## Privacy boundary
 
 The module is safe to use with authorized local source rows, but raw values can
 include private information. Private exports in `data/raw/` and
-`data/processed/` remain ignored. The fixture in `tests/fixtures/` uses only
-invented values and exists solely to demonstrate contract behavior.
+`data/processed/` remain ignored. Do not commit a source export, an adapter
+result, or an exported findings report. The fixture in `tests/fixtures/` uses
+only invented values and exists solely to demonstrate contract behavior.
 
 ## Compatibility
 
