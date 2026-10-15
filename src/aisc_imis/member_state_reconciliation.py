@@ -247,19 +247,23 @@ def reconcile_member_states(
         prior_values = _values(prior)
         expected_type = _single(prior_values["member_type"])
         expected_status = _single(prior_values["status"])
-        support = prior
-        if latest_events:
-            # A transition supersedes the preceding snapshot. Its explicit
-            # Member Type can support a type comparison; events do not encode Status.
-            expected_type = _single(
-                {
-                    entry.record.member_type
-                    for entry in latest_events
-                    if entry.record.member_type
-                }
+        type_support = prior
+        count_support = prior
+        # Only an event with an explicit Member Type can update that field.
+        # Later events without one leave the last supported type in place.
+        typed_events = tuple(entry for entry in events if entry.record.member_type)
+        if typed_events:
+            type_day = max(_day(entry.record.effective_date) for entry in typed_events)
+            type_support = tuple(
+                entry
+                for entry in typed_events
+                if _day(entry.record.effective_date) == type_day
             )
-            expected_status = None
-            support = latest_events
+            expected_type = _single(
+                {entry.record.member_type for entry in type_support}
+            )
+        if latest_events:
+            count_support = latest_events
 
         observed_decision = evaluate_countability(_lifecycle(item), when, rules)
         observed_count = _known_count(observed_decision.countability)
@@ -306,9 +310,9 @@ def reconcile_member_states(
             )
             continue
         differences = []
-        for field, expected, observed in (
-            ("member_type", expected_type, item.member_type),
-            ("status", expected_status, item.status),
+        for field, expected, observed, field_support in (
+            ("member_type", expected_type, item.member_type, type_support),
+            ("status", expected_status, item.status, prior),
         ):
             if expected is not None and observed is not None and expected != observed:
                 differences.append(field)
@@ -317,7 +321,7 @@ def reconcile_member_states(
                         "possible_missing_transition",
                         item.subject_key,
                         f"{scope}:{field}",
-                        supporting_evidence=support,
+                        supporting_evidence=field_support,
                         contradicting_evidence=target_entries,
                     )
                 )
@@ -332,7 +336,7 @@ def reconcile_member_states(
                     "countability_difference",
                     item.subject_key,
                     f"{scope}:countability",
-                    supporting_evidence=support,
+                    supporting_evidence=count_support,
                     contradicting_evidence=target_entries,
                 )
             )
@@ -364,7 +368,14 @@ def reconcile_member_states(
                 expected_status,
                 expected_count,
                 observed_count,
-                tuple(sorted({entry.record_id for entry in support})),
+                tuple(
+                    sorted(
+                        {
+                            entry.record_id
+                            for entry in (*type_support, *prior, *count_support)
+                        }
+                    )
+                ),
             )
         )
     return MemberStateReconciliation(tuple(comparisons), order_findings(findings))

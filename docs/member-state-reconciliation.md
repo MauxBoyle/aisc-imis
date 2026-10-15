@@ -16,8 +16,11 @@ also turns each supplied observation into source-linked ledger entries for its
 own comparisons.
 
 For a target date, every snapshot on that same date is excluded from the
-expected baseline. Earlier snapshots can support Member Type and Status;
-applicable, interpreted lifecycle events can supersede an earlier snapshot.
+expected baseline. Earlier snapshots can support Member Type and Status. An
+applicable, interpreted lifecycle event can update the expected Member Type
+when it records one, and can support a countability transition. A later event
+without Member Type leaves the last supported type in place. Events do not
+record Status, so the earlier Status remains the comparison baseline.
 Status is compared as an observed field but does not decide membership under
 the current rules. Countability is compared only when both the expected and
 observed values can be evaluated with an applicable rule. Dates before
