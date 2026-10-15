@@ -66,6 +66,8 @@ class CandidateLifecycleEvent:
     event_name: str
     source_references: tuple[SourceReference, ...]
     interpretation_reason: str
+    member_type: str | None = None
+    category: str | None = None
     effective_date: DateValue | None = None
     recorded_date: DateValue | None = None
     observed_date: DateValue | None = None
@@ -80,6 +82,8 @@ class CandidateLifecycleEvent:
         for source_reference in self.source_references:
             _validate_source(source_reference)
         _validate_text("interpretation_reason", self.interpretation_reason)
+        _validate_optional_text("member_type", self.member_type)
+        _validate_optional_text("category", self.category)
         _validate_dates(self.effective_date, self.recorded_date, self.observed_date)
         _validate_status(self.interpretation_status)
 
@@ -158,6 +162,8 @@ def _record_to_row(record: LedgerRecord) -> dict[str, str]:
             "event_name": "",
             "state_name": "",
             "interpretation_reason": "",
+            "member_type": "",
+            "category": "",
         }
     if isinstance(record, CandidateLifecycleEvent):
         return {
@@ -169,6 +175,8 @@ def _record_to_row(record: LedgerRecord) -> dict[str, str]:
             "event_name": record.event_name,
             "state_name": "",
             "interpretation_reason": record.interpretation_reason,
+            "member_type": record.member_type or "",
+            "category": record.category or "",
         }
     if isinstance(record, SnapshotStateObservation):
         return {
@@ -180,6 +188,8 @@ def _record_to_row(record: LedgerRecord) -> dict[str, str]:
             "event_name": "",
             "state_name": record.state_name,
             "interpretation_reason": "",
+            "member_type": "",
+            "category": "",
         }
     raise TypeError(f"Unsupported evidence-ledger record: {type(record).__name__}")
 
@@ -213,6 +223,8 @@ def _row_to_record(row: Mapping[str, str]) -> LedgerRecord:
             event_name=_required(row, "event_name"),
             source_references=sources,
             interpretation_reason=_required(row, "interpretation_reason"),
+            member_type=_optional_value(row, "member_type"),
+            category=_optional_value(row, "category"),
         )
     if len(sources) != 1:
         raise ValueError("snapshot_state_observation requires exactly one source reference")
@@ -282,6 +294,13 @@ def _required_value(row: Mapping[str, str], column: str) -> str:
     return value
 
 
+def _optional_value(row: Mapping[str, str], column: str) -> str | None:
+    value = row.get(column, "")
+    if not isinstance(value, str):
+        raise ValueError(f"{column} must be text")
+    return value or None
+
+
 def _parse_status(value: str) -> InterpretationStatus:
     try:
         return InterpretationStatus(value)
@@ -292,6 +311,11 @@ def _parse_status(value: str) -> InterpretationStatus:
 def _validate_text(name: str, value: object) -> None:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be nonblank text")
+
+
+def _validate_optional_text(name: str, value: object) -> None:
+    if value is not None and (not isinstance(value, str) or not value.strip()):
+        raise ValueError(f"{name} must be nonblank text when supplied")
 
 
 def _validate_source(value: object) -> None:

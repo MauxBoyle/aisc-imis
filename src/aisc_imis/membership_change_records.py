@@ -69,6 +69,7 @@ class MembershipChangeObservation:
     change_update: ParsedValue | None
     change_created: ParsedValue | None
     status: str | None
+    category: str | None
     change_effective: ParsedValue | None
     change_classification: MembershipChangeClassification | None
 
@@ -168,6 +169,7 @@ def read_membership_change_records(
             assert change_type.normalized is not None
             member_type = parse_member_type(outcome.member_type, member_types)
             status = parse_status(outcome.status, statuses)
+            category = _parse_optional_text(outcome.category)
             change_update = parse_date(outcome.change_update)
             change_created = parse_date(outcome.change_created)
             change_effective = _parse_optional_date(outcome.change_effective)
@@ -179,6 +181,7 @@ def read_membership_change_records(
                 ("ChangeUpdate", change_update.findings),
                 ("ChangeCreated", change_created.findings),
                 ("Status", status.findings),
+                ("Category", category.findings),
                 ("ChangeEffective", change_effective.findings),
             ):
                 findings.extend(_parse_findings(reference, field, value_findings))
@@ -196,6 +199,7 @@ def read_membership_change_records(
                     change_update=change_update.normalized,
                     change_created=change_created.normalized,
                     status=status.normalized,
+                    category=category.normalized,
                     change_effective=change_effective.normalized,
                     change_classification=classification,
                 )
@@ -305,6 +309,10 @@ def _parse_optional_date(raw: str | None) -> ParseResult[ParsedValue]:
     if raw is None or not raw.strip():
         return ParseResult(raw=raw, normalized=None)
     return parse_date(raw)
+
+
+def _parse_optional_text(raw: str | None) -> ParseResult[str]:
+    return ParseResult(raw=raw, normalized=raw.strip() if raw and raw.strip() else None)
 
 
 def _parse_findings(

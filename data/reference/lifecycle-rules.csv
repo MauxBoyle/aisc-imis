@@ -34,4 +34,5 @@ rule_version,effective_reporting_date,rule_kind,member_type,is_company,is_member
 2026-10-15,2026-10-15,event,*,*,*,*,resigned,resigned,unknown,decreases,former_member,10,Issue #23 and lifecycle review checklist
 2026-10-15,2026-10-15,event,*,*,*,*,expelled,expelled,unknown,decreases,former_member,10,Issue #23 and lifecycle review checklist
 2026-10-15,2026-10-15,event,*,*,*,*,reinstated,reinstated,unknown,increases,current_member,10,Issue #23 and lifecycle review checklist
+2026-10-15,2026-10-15,event,*,*,*,*,transferred,transferred,unknown,preserves,none,10,Issue #25 lifecycle period movements review
 2026-10-15,2026-10-15,event,*,*,*,*,dues,payment_evidence,unknown,evidence_only,none,10,Issue #23 and lifecycle review checklist

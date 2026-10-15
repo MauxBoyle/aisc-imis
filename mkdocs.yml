@@ -44,6 +44,7 @@ nav:
   - Versioned Lifecycle Rules: lifecycle-rules.md
   - Membership History Architecture: membership-history-architecture.md
   - Evidence Ledger: evidence-ledger.md
+  - Lifecycle Period Movements: lifecycle-period-movements.md
   - Normalization Contracts: normalization-contracts.md
   - Member Identifier Map: member-identifier-map.md
   - API Reference: api.md

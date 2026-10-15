@@ -44,7 +44,7 @@ empty strings.
 | `record_type` | Stable value: `observed_fact`, `candidate_lifecycle_event`, or `snapshot_state_observation` |
 | `subject_key` | Caller-provided subject key; the ledger does not infer it |
 | `fact_name`, `fact_value` | Fields used by `ObservedFact` |
-| `event_name`, `interpretation_reason` | Fields used by `CandidateLifecycleEvent` |
+| `event_name`, `interpretation_reason`, `member_type`, `category` | Fields used by `CandidateLifecycleEvent`; the latter two are optional source values |
 | `state_name` | Field used by `SnapshotStateObservation` |
 | `effective_date`, `recorded_date`, `observed_date` | Empty or ISO 8601 date/time values; timestamps keep their time precision |
 | `interpretation_status` | One of the four status values |
@@ -98,7 +98,7 @@ structured `findings`. They do not write an export, sort rows, join identities,
 or reconstruct a lifecycle.
 
 Current and historical snapshot observations emit one `SnapshotStateObservation`
-for every present normalized `member_type`, `status`, `is_member`, and
+for every present normalized `member_type`, `category`, `status`, `is_member`, and
 `is_company` value. The state name is written as `field=value`, in adapter
 field order. The normalized iMIS ID is the `subject_key`; `Last Updated` is the
 `recorded_date`; historical rows also retain their configured coverage date as
@@ -106,7 +106,8 @@ field order. The normalized iMIS ID is the `subject_key`; `Last Updated` is the
 
 Membership-change records use `ChangeID` as their `subject_key`; despite its
 name, this field is the member's iMIS ID. A reviewed taxonomy mapping with a
-lifecycle name becomes an inferred `CandidateLifecycleEvent`, with
+lifecycle name becomes an inferred `CandidateLifecycleEvent`, with optional
+source `Member Type` and `Category` values retained alongside it, and with
 `ChangeCreated` as both the default event date (`effective_date`) and recorded
 date. `ChangeEffective` remains available in the immutable source-row
 provenance for a later backdating review; it is not silently used as the event
