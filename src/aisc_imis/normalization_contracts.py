@@ -75,6 +75,7 @@ class CurrentRecord(EvidenceRecord):
     is_member: str
     last_updated: str
     status: str | None
+    category: str | None
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,7 @@ class SnapshotObservation(EvidenceRecord):
     is_member: str
     last_updated: str
     status: str | None
+    category: str | None
 
 
 @dataclass(frozen=True)
@@ -101,6 +103,7 @@ class MembershipChange(EvidenceRecord):
     change_created: str
     status: str
     change_effective: str | None
+    category: str | None
 
 
 @dataclass(frozen=True)
@@ -148,6 +151,7 @@ def validate_current_record(
         row["Is Member"],
         row["Last Updated"],
         _optional(row, "Status"),
+        _optional(row, "Category"),
     )
 
 
@@ -168,6 +172,7 @@ def validate_snapshot_observation(
         row["Is Member"],
         row["Last Updated"],
         _optional(row, "Status"),
+        _optional(row, "Category"),
     )
 
 
@@ -198,6 +203,7 @@ def validate_membership_change(
         row["ChangeCreated"],
         row["Status"],
         _optional(row, "ChangeEffective"),
+        _optional(row, "Category"),
     )
 
 

@@ -377,6 +377,17 @@ keeps source observations, inferred operational history, and Board decisions
 separate, and links unresolved lifecycle rules to their later implementation
 issues. It contains no member-level source data.
 
+## Lifecycle period movements
+
+The pure [lifecycle period movement API](docs/lifecycle-period-movements.md)
+analyses confirmed ledger entries in `[start_date, end_date)` periods. It keeps
+gross join/exit actions separate from opening-to-closing net population change,
+and reports Member Type (membership grouping) and Category transfers as two
+independent, zero-population-impact dimensions. Reviewed corrections are
+explicit, immutable audit instructions: they replace evidence only for a given
+analysis and never count as lifecycle actions. The API and its examples use
+synthetic evidence; private member rows stay out of documentation.
+
 ```bash
 uv run python scripts/serve_docs.py
 uv run mkdocs build

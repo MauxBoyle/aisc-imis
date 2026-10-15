@@ -57,6 +57,7 @@ def convert_current_member_observations(
                 status=observation.status,
                 is_member=observation.is_member,
                 is_company=observation.is_company,
+                category=observation.category,
             )
         )
     return EvidenceConversionResult(tuple(records), ())
@@ -78,6 +79,7 @@ def convert_historical_snapshot_observations(
                 status=observation.status,
                 is_member=observation.is_member,
                 is_company=observation.is_company,
+                category=observation.category,
             )
         )
     return EvidenceConversionResult(tuple(records), ())
@@ -108,6 +110,8 @@ def convert_membership_change_observations(
                     # it is not silently used as the event date.
                     effective_date=observation.change_created,
                     recorded_date=observation.change_created,
+                    member_type=observation.member_type,
+                    category=observation.category,
                 )
             )
             continue
@@ -188,12 +192,14 @@ def _snapshot_states(
     status: str | None,
     is_member: bool | None,
     is_company: bool | None,
+    category: str | None,
 ) -> tuple[SnapshotStateObservation, ...]:
     values = (
         ("member_type", member_type),
         ("status", status),
         ("is_member", is_member),
         ("is_company", is_company),
+        ("category", category),
     )
     return tuple(
         SnapshotStateObservation(

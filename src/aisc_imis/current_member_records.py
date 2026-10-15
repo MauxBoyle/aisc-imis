@@ -59,6 +59,7 @@ class CurrentMemberObservation:
     is_member: bool | None
     last_updated: ParsedValue | None
     status: str | None
+    category: str | None
 
 
 @dataclass(frozen=True)
@@ -142,6 +143,7 @@ def read_current_member_records(
             is_member = parse_boolean(outcome.is_member)
             last_updated = parse_date(outcome.last_updated)
             status = _parse_optional_status(outcome.status, statuses)
+            category = _parse_optional_text(outcome.category)
             parse_results = (
                 ("iMIS Id", identifier.findings),
                 ("Member Type", member_type.findings),
@@ -149,6 +151,7 @@ def read_current_member_records(
                 ("Is Member", is_member.findings),
                 ("Last Updated", last_updated.findings),
                 ("Status", status.findings),
+                ("Category", category.findings),
             )
             for field, value_findings in parse_results:
                 findings.extend(_parse_findings(reference, field, value_findings))
@@ -161,6 +164,7 @@ def read_current_member_records(
                     is_member=is_member.normalized,
                     last_updated=last_updated.normalized,
                     status=status.normalized,
+                    category=category.normalized,
                 )
             )
 
@@ -218,6 +222,10 @@ def _parse_optional_status(
     if raw is None or not raw.strip():
         return ParseResult(raw=raw, normalized=None)
     return parse_status(raw, codebook)
+
+
+def _parse_optional_text(raw: str | None) -> ParseResult[str]:
+    return ParseResult(raw=raw, normalized=raw.strip() if raw and raw.strip() else None)
 
 
 def _parse_findings(

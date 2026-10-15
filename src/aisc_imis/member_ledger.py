@@ -29,6 +29,8 @@ TABULAR_COLUMNS = (
     "event_name",
     "state_name",
     "interpretation_reason",
+    "member_type",
+    "category",
 )
 """The existing typed-ledger columns, in their deterministic export order."""
 
@@ -119,8 +121,14 @@ def write_member_evidence_csv(
 
 def _record_id(row: dict[str, str]) -> str:
     """Create a content ID from values in a fixed typed-ledger column order."""
+    # Keep IDs for pre-extension evidence stable.  New optional event evidence
+    # participates in the ID only when supplied, so it cannot collide with an
+    # otherwise identical older event.
+    columns = list(TABULAR_COLUMNS)
+    while columns[-1] in {"member_type", "category"} and not row[columns[-1]]:
+        columns.pop()
     canonical_row = json.dumps(
-        [row[column] for column in TABULAR_COLUMNS],
+        [row[column] for column in columns],
         ensure_ascii=False,
         separators=(",", ":"),
     )
