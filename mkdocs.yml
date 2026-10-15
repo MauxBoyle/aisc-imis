@@ -41,5 +41,6 @@ nav:
   - Membership Source Inventory: membership-source-inventory.md
   - Membership Date Semantics: membership-date-semantics.md
   - Membership Lifecycle Taxonomy: membership-lifecycle-taxonomy.md
+  - Membership History Architecture: membership-history-architecture.md
   - Member Identifier Map: member-identifier-map.md
   - API Reference: api.md

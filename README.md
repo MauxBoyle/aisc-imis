@@ -194,6 +194,14 @@ observed` are possible inferences, not lifecycle rules. Payment evidence does
 not automatically create a countable-status transition, and all unreviewed
 meanings and countability effects remain `unknown` / `unresolved`.
 
+## Membership-history architecture
+
+The privacy-safe [membership-history architecture baseline](docs/membership-history-architecture.md)
+sets out the proposed evidence, reconstruction, and Board-adjustment model. It
+keeps source observations, inferred operational history, and Board decisions
+separate, and links unresolved lifecycle rules to their later implementation
+issues. It contains no member-level source data.
+
 ```bash
 uv run python scripts/serve_docs.py
 uv run mkdocs build
