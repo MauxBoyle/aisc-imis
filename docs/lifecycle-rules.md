@@ -19,10 +19,12 @@ Type, missing inputs, unknown codes, and unapproved state combinations are
 `unknown` findings rather than inferred states.
 
 The initial event mappings recognize joining, resignation, expulsion, and
-reinstatement. `DUES` is payment evidence only (`evidence_only`); it does not
-make a member countable or create a transition. `ChangeCreated` remains the
-default transition date. `ChangeEffective` is retained as provenance pending a
-reviewed backdating exception.
+reinstatement. Each event rule now has an explicit target state: joining and
+reinstatement lead to `current_member`; resignation and expulsion lead to
+`former_member`. `DUES` is payment evidence only (`evidence_only`) and has no
+target state, so it does not make a member countable or create a transition.
+`ChangeCreated` remains the default transition date. `ChangeEffective` is
+retained as provenance pending a reviewed backdating exception.
 
 `Status` is intentionally retained on the observation but not used for a
 membership decision in this version. That makes the current reviewed policy
@@ -53,13 +55,14 @@ assert decision.countability == "countable"
 `evaluate_countability(observation, reporting_date, rules)` is pure: it does
 not read source exports, identify people, join records, sort events, write
 files, or make a report. Its immutable decision includes the selected rule
-version, operational state, countability result, transition effect, and zero
+version, operational state, countability result, transition effect, event target
+state, and zero
 or more structured findings.
 
 ## Rule-table columns and review
 
 Each row records its `rule_version`, inclusive `effective_reporting_date`,
-state or event inputs, `allowed_transition`, countability outcome,
+state or event inputs, `allowed_transition`, `event_target_state`, countability outcome,
 `precedence`, and `review_provenance`. `*` means that the input is not
 constrained by that row; it is not a license to infer an unlisted Member Type.
 Edit the CSV and tests together when approving a new version.

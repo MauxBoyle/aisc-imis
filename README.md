@@ -203,6 +203,31 @@ caller. It does not match identifiers, choose a preferred source, remove
 duplicates, or infer a lifecycle. Its CSV rows include a deterministic
 SHA-256 content ID and remain local operational data.
 
+To reconstruct the reviewed membership state for one already-confirmed member,
+pass that member's ledger entries to the pure reconstruction service. It does
+not read files or write reports, and it keeps the evidence that supports its
+answer:
+
+```python
+from datetime import date
+
+from aisc_imis.lifecycle_reconstruction import reconstruct_member_lifecycle
+from aisc_imis.lifecycle_rules import load_lifecycle_rules
+
+rules = load_lifecycle_rules("data/reference")
+result = reconstruct_member_lifecycle(
+    ledger.entries_for("example-member-001"),
+    as_of_date=date(2026, 10, 15),
+    rules=rules,
+)
+print(result.state)  # "unknown" before usable evidence, otherwise a reviewed state
+```
+
+Before a member's first usable evidence, reconstruction intentionally returns
+`unknown`; it never assumes that a later snapshot describes the past. See the
+[evidence-ledger documentation](docs/evidence-ledger.md) for interval and
+finding details.
+
 To turn normalized adapter observations into those ledger records, use the
 non-CLI functions in `aisc_imis.evidence_conversion`. They return immutable,
 input-ordered records plus structured conversion findings; they do not export,
