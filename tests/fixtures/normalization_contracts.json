@@ -1,0 +1,12 @@
+{
+  "current": {"iMIS Id": "SYN-100", "Member Type": "ACT", "Is Company": "True", "Is Member": "True", "Last Updated": "2026-10-14", "Status": "A", "Company": "Example Steel"},
+  "snapshot": {"iMIS Id": "SYN-100", "Member Type": "ACT", "Is Company": "True", "Is Member": "True", "Last Updated": "2026-05-01", "Status": "I"},
+  "change": {"ChangeID": "SYN-C-10", "Ordinal": "1", "Change Type": "RENEW", "Member Type": "ACT", "ChangeUpdate": "2026-10-01", "ChangeCreated": "2026-09-30", "Status": "A", "ChangeEffective": ""},
+  "activity": {"iMIS Id": "SYN-100", "Sequence": "9", "A_Transaction": "SYN-T-9", "Activity Type": "DUES", "Effective Date": "2026-10-01", "Member Type": "ACT", "Is a Company": "True", "Transaction Date": ""},
+  "missing_current": {"iMIS Id": "   ", "Member Type": "", "Is Company": "True", "Is Member": "True", "Last Updated": ""},
+  "preserved_rows": [
+    {"iMIS Id": "SYN-200", "Member Type": "ACT", "Is Company": "True", "Is Member": "True", "Last Updated": "2026-10-03", "Status": "A"},
+    {"iMIS Id": "SYN-200", "Member Type": "ACT", "Is Company": "True", "Is Member": "True", "Last Updated": "2026-10-03", "Status": "I"},
+    {"iMIS Id": "SYN-200", "Member Type": "ACT", "Is Company": "True", "Is Member": "True", "Last Updated": "2026-01-01", "Status": "A"}
+  ]
+}
