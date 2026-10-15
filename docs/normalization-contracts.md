@@ -3,8 +3,48 @@
 `aisc_imis.normalization_contracts` is a small, dependency-free boundary
 between source rows and later processing. It creates immutable Python
 dataclasses from one source row at a time. It does **not** read files, provide a
-CLI, join records, create an internal subject key, parse dates, infer event
-meaning, or make membership-history decisions.
+CLI, join records, create an internal subject key, infer event meaning, or make
+membership-history decisions.
+
+## Shared value parsers
+
+`aisc_imis.normalization_parsers` provides equally small parsers for individual
+source values. They are deliberately separate from the row contracts, so a
+future adapter can choose its own source-column mapping. Each immutable
+`ParseResult` has the unmodified `raw` value, a `normalized` value when parsing
+succeeds, and zero or more `ParseFinding` values. Findings use the consistent
+codes `blank`, `invalid`, and `ambiguous`; a parser never silently replaces a
+bad value.
+
+```python
+from aisc_imis.normalization_parsers import parse_date, parse_identifier
+
+parse_identifier("  000139  ")
+# ParseResult(raw="  000139  ", normalized="000139", findings=())
+
+parse_date("10/15/2026 1:05:23 PM")
+# ParseResult(..., normalized=datetime(2026, 10, 15, 13, 5, 23), findings=())
+```
+
+Identifiers stay as text: only surrounding whitespace is removed, so leading
+zeroes remain intact. Booleans accept the reviewed text values `True` and
+`False` and produce Python `True` and `False` values. Blank or other text is
+reported as a finding.
+
+Member-type and status parsers trim a code and check it against an explicit,
+caller-supplied codebook. Adapters should build those codebooks from the
+reviewed `data/reference/member_types.csv` and `data/reference/statuses.csv`
+tables. The parser treats codebook values as opaque: those tables are the place
+for reviewed meanings, and the parser does not turn a code into a business or
+lifecycle decision. `data/reference/boolean_values.csv` similarly documents
+the accepted boolean text values.
+
+Dates accept ISO dates, ISO timestamps, and the existing slash-style iMIS
+dates/timestamps. An ISO timestamp with an offset or `Z` remains a timezone-
+aware `datetime`; the parser does not assume or convert a timezone. Numeric
+slash dates use **month/day/year** by default. A caller that enables both
+`"mdy"` and `"dmy"` gets an `ambiguous` finding when one input could mean two
+different dates, rather than a guess.
 
 ## Source evidence and provenance
 
