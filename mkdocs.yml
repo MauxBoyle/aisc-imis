@@ -41,6 +41,7 @@ nav:
   - Membership Source Inventory: membership-source-inventory.md
   - Membership Date Semantics: membership-date-semantics.md
   - Membership Lifecycle Taxonomy: membership-lifecycle-taxonomy.md
+  - Versioned Lifecycle Rules: lifecycle-rules.md
   - Membership History Architecture: membership-history-architecture.md
   - Evidence Ledger: evidence-ledger.md
   - Normalization Contracts: normalization-contracts.md
