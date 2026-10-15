@@ -214,6 +214,51 @@ inputs under `data/raw/`, generated adapter results, and exported findings can
 contain private operational data and remain ignored local files. Do not commit
 them.
 
+## Activity-history CSV adapter
+
+`aisc_imis.activity_history_records` reads a caller-selected activity-history
+CSV without turning activity into a membership-status decision:
+
+```python
+from pathlib import Path
+
+from aisc_imis.activity_history_records import read_activity_history_records
+
+result = read_activity_history_records(
+    Path("data/raw/activity_history.csv"),
+    Path("data/reference"),
+)
+```
+
+The result contains immutable `ActivityHistoryObservation` values, structural
+`ValidationRejection` values, and `IngestionFinding` values. An accepted
+observation keeps its canonical `ActivityRecord`, including every raw named
+CSV field, the source filename, and its physical CSV row number. This means
+raw action, source, product, notes, and unreviewed metadata remain available
+for later review. Extra cells beyond the CSV header are retained as
+`__extra_csv_value_1`, `__extra_csv_value_2`, and so on, with a schema finding.
+
+The required headers are `iMIS Id`, `Sequence`, `A_Transaction`, `Activity
+Type`, `Effective Date`, `Member Type`, and `Is a Company`. `Transaction Date`
+is optional. The iMIS ID, sequence, and transaction identifier remain text so
+leading zeroes are preserved. Member type and company flag are normalized with
+the reviewed member-type codebook and boolean parser; invalid values remain as
+raw evidence and receive findings. Effective and transaction dates are parsed
+and exposed separately. A difference between them is retained as distinct
+evidence, not reconciled or treated as an error.
+
+The adapter scopes `lifecycle-evidence-taxonomy.csv` to `Activity history` /
+`Activity Type` and exposes a reviewed `ActivityClassification` separately on
+each observation. Unknown, unresolved, and conflicting mappings receive
+findings. Classification is review configuration only: payment activity stays
+payment evidence, and no activity row creates a membership transition, state,
+or status change. Duplicate normalized `(iMIS Id, Sequence)` combinations are
+reported for every involved row, without dropping or reordering any rows.
+
+Like the other adapters, this reader only accesses caller-selected local files
+and writes no result. Raw inputs in `data/raw/`, generated results, and finding
+exports may include private operational data; keep them local and uncommitted.
+
 ## Privacy boundary
 
 The module is safe to use with authorized local source rows, but raw values can
