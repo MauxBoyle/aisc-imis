@@ -81,21 +81,22 @@ def test_unapproved_or_conflicting_state_combinations_are_findings(rules, observ
 
 
 @pytest.mark.parametrize(
-    ("event_name", "effect"),
+    ("event_name", "effect", "target_state"),
     [
-        ("joined", "increases"),
-        ("resigned", "decreases"),
-        ("expelled", "decreases"),
-        ("reinstated", "increases"),
-        ("DUES", "evidence_only"),
+        ("joined", "increases", "current_member"),
+        ("resigned", "decreases", "former_member"),
+        ("expelled", "decreases", "former_member"),
+        ("reinstated", "increases", "current_member"),
+        ("DUES", "evidence_only", "none"),
     ],
 )
-def test_reviewed_events_have_configured_effects(rules, event_name, effect):
+def test_reviewed_events_have_configured_effects(rules, event_name, effect, target_state):
     decision = evaluate_countability(
         LifecycleObservation(event_name=event_name), date(2026, 10, 15), rules
     )
 
     assert decision.transition_effect == effect
+    assert decision.event_target_state == target_state
     assert decision.findings == ()
 
 

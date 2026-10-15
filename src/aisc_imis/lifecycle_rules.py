@@ -25,6 +25,7 @@ REQUIRED_COLUMNS = {
     "operational_state",
     "countability",
     "allowed_transition",
+    "event_target_state",
     "precedence",
     "review_provenance",
 }
@@ -78,6 +79,7 @@ class LifecycleRule:
     operational_state: str
     countability: Countability
     allowed_transition: str
+    event_target_state: str
     precedence: int
     review_provenance: str
 
@@ -97,6 +99,7 @@ class CountabilityDecision:
     operational_state: str | None
     countability: Countability
     transition_effect: str | None
+    event_target_state: str | None
     findings: tuple[LifecycleFinding, ...]
 
 
@@ -183,6 +186,7 @@ def _evaluate_state(
         rule.operational_state,
         rule.countability,
         None,
+        None,
         (),
     )
 
@@ -211,6 +215,7 @@ def _evaluate_event(
         rule.operational_state,
         rule.countability,
         rule.allowed_transition,
+        rule.event_target_state,
         (),
     )
 
@@ -242,6 +247,7 @@ def _unknown(
         None,
         Countability.UNKNOWN,
         None,
+        None,
         (LifecycleFinding(code, message, field),),
     )
 
@@ -271,6 +277,7 @@ def _parse_rule(row: dict[str, str | None], line_number: int) -> LifecycleRule:
         operational_state=values["operational_state"],
         countability=countability,
         allowed_transition=values["allowed_transition"],
+        event_target_state=values["event_target_state"],
         precedence=precedence,
         review_provenance=values["review_provenance"],
     )

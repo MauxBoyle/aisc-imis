@@ -1,9 +1,9 @@
 # Evidence ledger
 
 `aisc_imis.evidence_ledger` provides small immutable Python models for keeping
-membership evidence reviewable before lifecycle reconstruction exists. It is a
-library module, not a command-line tool, report generator, source adapter, or
-set of lifecycle rules.
+membership evidence reviewable before lifecycle reconstruction. It is a library
+module, not a command-line tool, report generator, source adapter, or set of
+lifecycle rules.
 
 The module reuses `SourceReference` from the normalization contracts. It does
 not join subjects, choose the best source, assign numeric confidence, or remove
@@ -118,3 +118,23 @@ findings; they never become transitions.
 The reviewed `DUES` activity mapping is a special safeguard: it becomes a
 verified `payment_activity` fact, not a lifecycle event. Payment evidence can
 be useful in review, but it does not prove a membership transition.
+
+## Lifecycle reconstruction
+
+`aisc_imis.lifecycle_reconstruction` reconstructs the state of one already
+confirmed member from `MemberLedgerEntry` values. It is pure: it does not read
+exports, match identities, write files, or choose a preferred contradictory
+source. Callers pass the entries for one `subject_key`, an as-of date, and the
+reviewed lifecycle rules.
+
+The result contains a current `state`, inclusive-start/exclusive-end
+`StateInterval` values, the supporting ledger entries, and structured findings.
+Before the first usable evidence its opening strategy is explicitly
+`UNKNOWN_BEFORE_COVERAGE`; no later snapshot is backfilled into earlier time.
+Snapshot fields from the same source row and dates are grouped into one rule
+observation, and a known snapshot state carries forward until later
+unambiguous evidence. Evidence must both apply by the requested date and have
+been recorded or observed by that date. Missing dates, unresolved evidence,
+unavailable rule versions, and same-day conflicting states result in `unknown`
+rather than a guess. Conflicting same-day evidence stays in the result with a
+`same_day_state_contradiction` finding.
