@@ -200,6 +200,11 @@ automatically creates a countable-status transition. The draft vocabulary
 `other observed`) is not a rule set. Raw values for people, IDs, notes,
 descriptions, payment fields, and transaction identifiers are never rendered.
 
+The reviewed `data/reference/categories.csv` lookup supplies a display name
+and reporting group for each Category code. It supports readable reporting
+and category summaries, including for Associate members; it does not change
+lifecycle countability. `TBD` entries still need review.
+
 ## Certified Domestic Fabricator reconciliation
 
 Compare a Salesforce Certified Domestic Fabricator CSV with an iMIS company
