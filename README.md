@@ -175,6 +175,34 @@ observed dates separate; preserves conflicting records; and can round-trip the
 models through one typed table format for local audit exports. Any generated
 ledger exports belong in ignored `data/processed/`.
 
+For an ordered view of evidence for already-confirmed member keys, use the
+non-CLI member ledger service. This synthetic example preserves every record
+and writes only to a caller-chosen local path:
+
+```python
+from aisc_imis.evidence_ledger import ObservedFact
+from aisc_imis.member_ledger import (
+    build_member_evidence_ledger,
+    write_member_evidence_csv,
+)
+from aisc_imis.normalization_contracts import SourceReference
+
+record = ObservedFact(
+    subject_key="example-member-001",
+    fact_name="membership_status",
+    fact_value="active",
+    source_reference=SourceReference("invented.csv", "row-1"),
+)
+ledger = build_member_evidence_ledger((record,))
+member_records = ledger.records_for("example-member-001")
+write_member_evidence_csv(ledger, "data/processed/member-evidence.csv")
+```
+
+The service treats `subject_key` as an identity already confirmed by its
+caller. It does not match identifiers, choose a preferred source, remove
+duplicates, or infer a lifecycle. Its CSV rows include a deterministic
+SHA-256 content ID and remain local operational data.
+
 To turn normalized adapter observations into those ledger records, use the
 non-CLI functions in `aisc_imis.evidence_conversion`. They return immutable,
 input-ordered records plus structured conversion findings; they do not export,
