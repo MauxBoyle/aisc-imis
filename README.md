@@ -143,6 +143,19 @@ uv run python scripts/generate_membership_source_inventory.py
 The generated Markdown intentionally contains no member rows or source cell
 values. The raw and processed exports remain ignored local operational data.
 
+The aggregate-only [member identifier map](docs/member-identifier-map.md)
+records which identifiers have evidence for exact matching across the same four
+membership inputs. Refresh it with:
+
+```bash
+uv run python scripts/generate_member_identifier_map.py
+```
+
+It reports counts, leading-zero behavior, and exact hashed intersections only.
+It does not normalize IDs to create joins; `Company ID`, company names, and the
+membership-change transaction key remain review-only unless the document says
+otherwise.
+
 ```bash
 uv run python scripts/serve_docs.py
 uv run mkdocs build

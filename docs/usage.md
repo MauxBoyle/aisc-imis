@@ -105,6 +105,23 @@ and candidate-key aggregates, and date findings, but never member rows or
 source cell values. The history source is observed snapshot coverage, not a
 claim of complete membership history.
 
+## Member identifier map
+
+Generate the aggregate-only key relationship evidence for those same four
+membership inputs:
+
+```bash
+uv run python scripts/generate_member_identifier_map.py
+```
+
+The output is `docs/member-identifier-map.md`. It profiles `iMIS Id`, `Major
+Key`, `Company ID`, `ChangeID`, `Ordinal`, and `Sequence` using counts and
+non-reversible comparisons. Exact joins preserve leading zeroes. `Major Key`
+is parent/dependent evidence only when it exactly matches an `iMIS Id`; company
+names and `Company ID` remain review-only. The membership-change export has no
+member-level `iMIS Id`, so `ChangeID` plus `Ordinal` is a transaction key only
+and cross-source member matching needs review.
+
 ## Certified Domestic Fabricator reconciliation
 
 Compare a Salesforce Certified Domestic Fabricator CSV with an iMIS company
