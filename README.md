@@ -143,6 +143,23 @@ uv run python scripts/generate_membership_source_inventory.py
 The generated Markdown intentionally contains no member rows or source cell
 values. The raw and processed exports remain ignored local operational data.
 
+## Membership date semantics
+
+Create or refresh the aggregate-only date profiling report from authorized local
+exports:
+
+```bash
+uv run python scripts/generate_membership_date_semantics.py
+```
+
+The generated [date-semantics report](docs/membership-date-semantics.md)
+counts blanks, invalid values, date precision, explicit timezone markers, and
+configured date-pair ordering without publishing member IDs or source date
+values. It documents which date meanings remain open questions and keeps
+effective dates, recorded/update dates, snapshot observation time, and report
+cutoffs separate. Raw and processed exports remain ignored local operational
+data.
+
 The aggregate-only [member identifier map](docs/member-identifier-map.md)
 records which identifiers have evidence for exact matching across the same four
 membership inputs. Refresh it with:

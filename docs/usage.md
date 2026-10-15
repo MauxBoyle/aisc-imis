@@ -105,6 +105,27 @@ and candidate-key aggregates, and date findings, but never member rows or
 source cell values. The history source is observed snapshot coverage, not a
 claim of complete membership history.
 
+## Membership date semantics
+
+Generate the aggregate-only date-semantics report for the same four membership
+inputs:
+
+```bash
+uv run python scripts/generate_membership_date_semantics.py
+```
+
+The output is `docs/membership-date-semantics.md`. It profiles blanks, invalid
+values, date-only versus timestamp precision, explicit timezone markers,
+implausible dates, and configured ordering pairs. It does not publish member
+IDs or source date values. Its purpose is to document what each candidate date
+field can safely mean, while leaving unsupported meanings as open questions.
+
+Use a validated, source-supported effective date only for effective ordering.
+Keep created, recorded, transaction, and update dates as separate provenance;
+provide snapshot observation time and the report cutoff separately rather than
+using either as a substitute for a source date. The raw and processed exports
+remain ignored local operational data.
+
 ## Member identifier map
 
 Generate the aggregate-only key relationship evidence for those same four
