@@ -39,5 +39,6 @@ nav:
   - Home: index.md
   - Usage: usage.md
   - Membership Source Inventory: membership-source-inventory.md
+  - Membership Date Semantics: membership-date-semantics.md
   - Member Identifier Map: member-identifier-map.md
   - API Reference: api.md
