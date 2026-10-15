@@ -155,6 +155,15 @@ numeric dates follow a month/day/year default; adapters must explicitly opt in
 to another policy and handle any ambiguity. Reviewed code meanings stay in the
 version-controlled CSVs under `data/reference/`, not in parser business rules.
 
+For scripts or future interfaces that need the confirmed current-state export,
+use the non-CLI `read_current_member_records` adapter with an explicit local CSV
+path (normally `data/processed/CSContactBasic_current.csv`) and the reviewed
+`data/reference/` directory. It returns immutable observations, structural row
+rejections, and findings; it does not write files, deduplicate IDs, or infer
+lifecycle transitions. The observations are present-state evidence, not dated
+membership events. Inputs and any result or findings exports can contain private
+data, so keep them local and uncommitted.
+
 ## Membership date semantics
 
 Create or refresh the aggregate-only date profiling report from authorized local
