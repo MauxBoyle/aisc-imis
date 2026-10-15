@@ -59,6 +59,36 @@ Generated exports may be written locally under `data/processed/`, which is
 ignored by Git because it can contain operational data. This module itself does
 not write files.
 
+## Member evidence ledger view
+
+`aisc_imis.member_ledger` turns already-confirmed `subject_key` values into a
+deterministic, member-focused view. Use
+`build_member_evidence_ledger(records)` to create an immutable
+`MemberEvidenceLedger`. Its `entries_for(subject_key)` method returns the
+content IDs and records for one member; `records_for(subject_key)` returns the
+typed records alone. An unknown key returns an empty tuple.
+
+The caller is responsible for confirming a `subject_key` before building this
+view. The module does not join identifiers, infer member identities, rank
+sources, or reconstruct a membership lifecycle.
+
+Every entry has a `record_id`: the SHA-256 hash of the record's canonical typed
+table row. The ID is deterministic across repeated builds and input order.
+Exact duplicate evidence has the same ID and is deliberately retained as a
+separate row. Contradictory evidence is also retained.
+
+Records are grouped by `subject_key`; groups are ordered by key. Within one
+group, records sort by effective date, then recorded date, then observed date,
+with missing values last for each role. Values are compared as their canonical
+ISO 8601 source values. In particular, the view neither converts timezones nor
+treats a date-only value as midnight. Remaining ties use `record_id`.
+
+`write_member_evidence_csv(ledger, output_path)` writes a CSV only to the
+explicit path provided by the caller and creates its parent directories when
+needed. It writes `record_id` followed by the typed-ledger columns in a fixed
+order. Use a local ignored path such as `data/processed/member-evidence.csv`;
+do not commit operational exports.
+
 ## Converting normalized iMIS observations
 
 `aisc_imis.evidence_conversion` is the small, non-CLI bridge from the four
