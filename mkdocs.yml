@@ -42,6 +42,7 @@ nav:
   - Membership Date Semantics: membership-date-semantics.md
   - Membership Lifecycle Taxonomy: membership-lifecycle-taxonomy.md
   - Membership History Architecture: membership-history-architecture.md
+  - Evidence Ledger: evidence-ledger.md
   - Normalization Contracts: normalization-contracts.md
   - Member Identifier Map: member-identifier-map.md
   - API Reference: api.md

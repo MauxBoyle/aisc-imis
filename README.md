@@ -168,6 +168,13 @@ numeric dates follow a month/day/year default; adapters must explicitly opt in
 to another policy and handle any ambiguity. Reviewed code meanings stay in the
 version-controlled CSVs under `data/reference/`, not in parser business rules.
 
+The [evidence ledger](docs/evidence-ledger.md) supplies immutable,
+provenance-rich Python models for source-backed facts, candidate lifecycle
+events, and snapshot-state observations. It keeps effective, recorded, and
+observed dates separate; preserves conflicting records; and can round-trip the
+models through one typed table format for local audit exports. Any generated
+ledger exports belong in ignored `data/processed/`.
+
 For scripts or future interfaces that need the confirmed current-state export,
 use the non-CLI `read_current_member_records` adapter with an explicit local CSV
 path (normally `data/processed/CSContactBasic_current.csv`) and the reviewed
