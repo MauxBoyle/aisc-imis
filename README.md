@@ -192,6 +192,22 @@ never joins a transaction to a member. Raw files in `data/raw/` and generated
 results or findings reports remain ignored local operational data because they
 can contain private information.
 
+For a caller-supplied activity-history export, use the non-CLI
+`read_activity_history_records(csv_path, reference_directory)` adapter. It
+returns immutable observations, structural rejections, and findings while
+retaining the canonical raw `ActivityRecord`, including action, source,
+product, notes, other metadata, filename, and physical CSV row number. `iMIS
+Id`, `Sequence`, and `A_Transaction` stay text, so leading zeroes remain
+meaningful; duplicate `(iMIS Id, Sequence)` combinations are findings and no
+rows are dropped. `Effective Date` and optional `Transaction Date` are parsed
+as separate source evidence, even when they differ. The adapter reads only the
+`Activity history` / `Activity Type` portion of the reviewed lifecycle
+taxonomy and exposes a classification for review. Unknown, unresolved, and
+conflicting mappings become findings. This includes payment classifications:
+they remain payment evidence only and never create a membership transition or
+status. Keep source CSVs, adapter results, and finding exports local and
+uncommitted because they may contain private operational data.
+
 ## Membership date semantics
 
 Create or refresh the aggregate-only date profiling report from authorized local
