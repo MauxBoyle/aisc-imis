@@ -161,6 +161,7 @@ def test_handles_bom_rejections_missing_headers_and_incompatible_rows(tmp_path):
         incompatible, tmp_path / "references"
     )
     assert incompatible_result.observations[0].imis_id == "SYN-1"
+    assert incompatible_result.observations[0].record.raw_value("__extra_csv_value_1") == "extra"
     assert [(finding.code, finding.reference.row_reference) for finding in incompatible_result.findings] == [
         ("incompatible_source_schema", "row-2"),
     ]

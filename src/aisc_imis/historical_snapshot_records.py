@@ -35,6 +35,7 @@ from aisc_imis.normalization_parsers import (
 REQUIRED_HEADERS = ("iMIS Id", "Member Type", "Is Company", "Is Member", "Last Updated")
 SNAPSHOT_DATE_HEADER = "snapshot_date"
 OBSERVATION_DATE_BASIS = "configured_snapshot_on_or_after_last_updated"
+EXTRA_FIELD_PREFIX = "__extra_csv_value_"
 
 
 @dataclass(frozen=True)
@@ -298,11 +299,19 @@ def _load_snapshot_dates(path: Path) -> tuple[tuple[date, ...], tuple[IngestionF
 
 
 def _source_row(row: Mapping[str | None, str | list[str] | None]) -> dict[str, str | None]:
-    return {
+    source_row = {
         name: value if isinstance(value, str) or value is None else None
         for name, value in row.items()
         if isinstance(name, str)
     }
+    extra_values = row.get(None)
+    if isinstance(extra_values, list):
+        for index, value in enumerate(extra_values, start=1):
+            field_name = f"{EXTRA_FIELD_PREFIX}{index}"
+            while field_name in source_row:
+                field_name += "_"
+            source_row[field_name] = value
+    return source_row
 
 
 def _parse_optional_status(

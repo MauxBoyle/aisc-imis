@@ -148,6 +148,9 @@ its `SnapshotObservation` record (all raw named fields, CSV filename, and
 physical row number), and separately exposes normalized identifiers, reviewed
 codes, booleans, `Last Updated`, and optional status. Invalid values and unknown
 codes produce findings without removing an otherwise structurally valid row.
+If a data row contains more values than the header defines, those extra cells
+are retained as raw fields named `__extra_csv_value_1`,
+`__extra_csv_value_2`, and so on, alongside an incompatibility finding.
 
 The version-controlled `data/reference/snapshot_dates.csv` schedule currently
 lists coverage dates `2025-06-05`, `2025-06-25`, `2025-06-26`, `2025-07-01`,
