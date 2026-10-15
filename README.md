@@ -52,6 +52,35 @@ Reports are review candidates, not instructions to merge records automatically.
 Like `data/raw/`, `data/processed/` is local operational data and is not
 committed.
 
+## CSContactBasic snapshot merge
+
+Combine all CSV files in `data/raw/` whose names contain `CSContactBasic`:
+
+```bash
+uv run python scripts/combine_contact_snapshots.py
+```
+
+The command writes `data/processed/CSContactBasic_combined_deduplicated.csv`.
+If that output already exists, the command uses it as the historical base and
+adds the matching files currently in `data/raw/`. This makes later incremental
+updates repeatable; running the same update twice does not duplicate its rows.
+It compares rows with the same `iMIS Id` and `Last Updated` value. Exact
+duplicates are removed, and compatible rows are combined by filling blank
+fields. If two populated fields disagree, both rows are retained. Rows without
+a `Last Updated` value remain in a separate blank-date group. The obsolete
+first-attempt export `Full_CSContactBasic_MB_1.csv` is excluded. The calculated
+source fields `isMax`, `maxUpdate`, and `Table Names` are not copied to the result.
+
+Split the combined file into one newest row per iMIS ID and all older rows:
+
+```bash
+uv run python scripts/split_contact_snapshots.py
+```
+
+This writes `data/processed/CSContactBasic_current.csv` and
+`data/processed/CSContactBasic_history.csv`. If an ID has multiple rows tied at
+its newest timestamp, the command stops instead of choosing one silently.
+
 ## Certified Domestic Fabricator reconciliation
 
 Reconcile a Salesforce Certified Domestic Fabricator export against an iMIS
@@ -102,6 +131,17 @@ uv run pytest --cov
 ```
 
 ## Documentation
+
+The aggregate-only [membership source inventory](docs/membership-source-inventory.md)
+documents the schemas and observed coverage of the four membership inputs. To
+refresh it from authorized local exports, run:
+
+```bash
+uv run python scripts/generate_membership_source_inventory.py
+```
+
+The generated Markdown intentionally contains no member rows or source cell
+values. The raw and processed exports remain ignored local operational data.
 
 ```bash
 uv run python scripts/serve_docs.py

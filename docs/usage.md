@@ -74,6 +74,37 @@ instructions.
 Both `data/raw/` and `data/processed/` are ignored local operational data
 directories.
 
+## CSContactBasic current and history split
+
+After combining the CSContactBasic snapshots, split them into one newest row per
+iMIS ID and all older rows:
+
+```bash
+uv run python scripts/split_contact_snapshots.py
+```
+
+The default input is
+`data/processed/CSContactBasic_combined_deduplicated.csv`. The outputs are
+`data/processed/CSContactBasic_current.csv` and
+`data/processed/CSContactBasic_history.csv`. Use `--input`, `--current`, and
+`--history` to choose different paths. The command stops for review if an iMIS
+ID has multiple rows tied at its newest timestamp.
+
+## Membership source inventory
+
+Generate the committed, aggregate-only inventory of the four membership inputs:
+
+```bash
+uv run python scripts/generate_membership_source_inventory.py
+```
+
+It reads the two CSContactBasic split files, the membership-change export, and
+the activity-history export. The output is
+`docs/membership-source-inventory.md`; it includes headers, row counts, null
+and candidate-key aggregates, and date findings, but never member rows or
+source cell values. The history source is observed snapshot coverage, not a
+claim of complete membership history.
+
 ## Certified Domestic Fabricator reconciliation
 
 Compare a Salesforce Certified Domestic Fabricator CSV with an iMIS company
