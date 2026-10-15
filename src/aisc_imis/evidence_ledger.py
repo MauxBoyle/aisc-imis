@@ -72,6 +72,7 @@ class CandidateLifecycleEvent:
     interpretation_status: InterpretationStatus = InterpretationStatus.INFERRED
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "source_references", tuple(self.source_references))
         _validate_text("subject_key", self.subject_key)
         _validate_text("event_name", self.event_name)
         if not self.source_references:

@@ -101,6 +101,21 @@ def test_candidate_event_requires_sources_and_nonblank_reason(sources, reason):
         )
 
 
+def test_candidate_event_copies_mutable_source_collections_to_a_tuple():
+    sources = [source("invented.csv", "row-1")]
+
+    event = CandidateLifecycleEvent(
+        subject_key="subject-elm",
+        event_name="possible_change",
+        source_references=sources,
+        interpretation_reason="An invented source row suggests a possible change.",
+    )
+    sources.append(source("invented.csv", "row-2"))
+
+    assert event.source_references == (source("invented.csv", "row-1"),)
+    assert isinstance(event.source_references, tuple)
+
+
 def test_interpretation_statuses_remain_distinct():
     records = tuple(
         ObservedFact(
