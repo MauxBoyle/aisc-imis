@@ -172,9 +172,10 @@ The output is `docs/member-identifier-map.md`. It profiles `iMIS Id`, `Major
 Key`, `Company ID`, `ChangeID`, `Ordinal`, and `Sequence` using counts and
 non-reversible comparisons. Exact joins preserve leading zeroes. `Major Key`
 is parent/dependent evidence only when it exactly matches an `iMIS Id`; company
-names and `Company ID` remain review-only. The membership-change export has no
-member-level `iMIS Id`, so `ChangeID` plus `Ordinal` is a transaction key only
-and cross-source member matching needs review.
+names and `Company ID` remain review-only. In the membership-change export,
+`ChangeID` is the member's iMIS ID and `Ordinal` identifies that member's
+individual change row; together they form the candidate row key. Cross-source
+matching should still preserve the source evidence and remain reviewable.
 
 ## Membership lifecycle evidence taxonomy
 

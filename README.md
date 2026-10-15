@@ -181,8 +181,10 @@ For a caller-supplied membership-change export, use the non-CLI
 `read_membership_change_records(csv_path, reference_directory)` adapter. It
 returns immutable observations, structural row rejections, and findings while
 preserving every accepted row's raw fields, filename, and physical CSV row
-number. It keeps `ChangeID` and `Ordinal` as text and reports duplicate keys
-without dropping either transaction. `ChangeEffective`, `ChangeCreated`, and
+number. In this export, `ChangeID` is the member's iMIS ID and `Ordinal`
+identifies the individual change row for that member. Both remain text, and
+the adapter reports duplicate `(ChangeID, Ordinal)` keys without dropping
+either transaction. `ChangeEffective`, `ChangeCreated`, and
 `ChangeUpdate` are parsed separately; no date is silently selected as a
 lifecycle-event date and input rows are not sorted. The adapter checks only the
 `Membership changes` / `Change Type` rows of the version-controlled
