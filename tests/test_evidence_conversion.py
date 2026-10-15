@@ -67,7 +67,7 @@ def test_current_and_historical_rows_emit_ordered_state_observations(tmp_path, r
     assert all(record.source_reference.row_reference == "row-2" for record in historical_result.records)
 
 
-def test_membership_change_uses_change_id_and_approved_mapping_dates(tmp_path, references):
+def test_membership_change_uses_imis_id_and_created_date_by_default(tmp_path, references):
     source = tmp_path / "changes.csv"
     source.write_text(
         "ChangeID,Ordinal,Change Type,Member Type,ChangeUpdate,ChangeCreated,Status,ChangeEffective\n"
@@ -81,7 +81,7 @@ def test_membership_change_uses_change_id_and_approved_mapping_dates(tmp_path, r
 
     assert isinstance(record, CandidateLifecycleEvent)
     assert (record.subject_key, record.event_name) == ("00017", "joined")
-    assert (record.effective_date, record.recorded_date) == (date(2026, 1, 2), date(2026, 1, 3))
+    assert (record.effective_date, record.recorded_date) == (date(2026, 1, 3), date(2026, 1, 3))
     assert record.source_references[0].row_reference == "row-2"
     assert result.findings == ()
 

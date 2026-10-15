@@ -104,13 +104,16 @@ field order. The normalized iMIS ID is the `subject_key`; `Last Updated` is the
 `recorded_date`; historical rows also retain their configured coverage date as
 `observed_date`.
 
-Membership-change records use `ChangeID` as their `subject_key`. A reviewed
-taxonomy mapping with a lifecycle name becomes an inferred
-`CandidateLifecycleEvent`, with `ChangeEffective` as `effective_date` and
-`ChangeCreated` as `recorded_date`. Activity-history records use the normalized
-iMIS ID, `Effective Date`, and `Transaction Date` in the same roles. Unknown,
-conflicting, and unresolved mappings are retained as unresolved `ObservedFact`
-records and get conversion findings; they never become transitions.
+Membership-change records use `ChangeID` as their `subject_key`; despite its
+name, this field is the member's iMIS ID. A reviewed taxonomy mapping with a
+lifecycle name becomes an inferred `CandidateLifecycleEvent`, with
+`ChangeCreated` as both the default event date (`effective_date`) and recorded
+date. `ChangeEffective` remains available in the immutable source-row
+provenance for a later backdating review; it is not silently used as the event
+date. Activity-history records use the normalized iMIS ID, `Effective Date`,
+and `Transaction Date` in the same roles. Unknown, conflicting, and unresolved
+mappings are retained as unresolved `ObservedFact` records and get conversion
+findings; they never become transitions.
 
 The reviewed `DUES` activity mapping is a special safeguard: it becomes a
 verified `payment_activity` fact, not a lifecycle event. Payment evidence can

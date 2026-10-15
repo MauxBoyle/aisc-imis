@@ -102,7 +102,11 @@ def convert_membership_change_observations(
                         f"{observation.change_type!r} to "
                         f"{classification.draft_lifecycle_name!r}."
                     ),
-                    effective_date=observation.change_effective,
+                    # The reviewed default for a membership-change event is
+                    # when it was created.  ``ChangeEffective`` remains in
+                    # the immutable source row for later backdating review;
+                    # it is not silently used as the event date.
+                    effective_date=observation.change_created,
                     recorded_date=observation.change_created,
                 )
             )
