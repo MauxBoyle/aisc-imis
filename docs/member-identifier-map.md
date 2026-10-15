@@ -1,6 +1,6 @@
 # Membership identifier map
 
-This document contains aggregate, non-reversible identifier evidence only. It does not publish member IDs, company names, or other source values.
+This document contains aggregate, non-reversible identifier evidence only. It does not publish member IDs, company names, or other source values. Per-value keyed digests exist only during one profiling run and are not included in the returned results.
 
 ## Joining rules
 
