@@ -39,8 +39,25 @@ def test_countable_to_uncountable_snapshot_change_is_not_a_transfer():
     result = analyze((*snapshots("ACT", "A", date(2026, 10, 15), "open"), *snapshots("FACT", "B", date(2026, 10, 16), "closed")))
 
     assert result.net_population_change == -1
+    assert result.gross_lifecycle_actions == {"exited": 1}
+    assert result.contributors[0].lifecycle_actions == ("exited",)
     assert result.membership_grouping_transfers == ()
     assert result.category_transfers == ()
+
+
+def test_transferred_event_and_same_day_snapshot_merge_without_a_contradiction():
+    records = (
+        *snapshots("ACT", "A", date(2026, 10, 15), "open"),
+        CandidateLifecycleEvent("member-1", "transferred", (SourceReference("synthetic.csv", "transfer"),), "synthetic", member_type="ASSOC", category="B", effective_date=date(2026, 10, 16), recorded_date=date(2026, 10, 16)),
+        *snapshots("ASSOC", "B", date(2026, 10, 16), "moved"),
+    )
+
+    result = analyze(records)
+
+    assert not any(finding.code == "same_day_state_contradiction" for finding in result.findings)
+    assert result.net_population_change == 0
+    assert [(item.outgoing, item.incoming) for item in result.membership_grouping_transfers] == [("ACT", "ASSOC")]
+    assert [(item.outgoing, item.incoming) for item in result.category_transfers] == [("A", "B")]
 
 
 def test_gross_actions_remain_visible_when_join_and_exit_cancel_net_change():

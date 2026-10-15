@@ -205,24 +205,29 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
     used: list[MemberLedgerEntry] = []
     for when in sorted(points):
         day = points[when]
-        candidates = [point.profile for point in day if point.profile is not None]
-        if len({candidate for candidate in candidates}) > 1:
+        day_profile = _day_profile(day)
+        if day_profile is None:
             findings.append(MovementFinding("same_day_state_contradiction", "Conflicting evidence applies on the same day.", tuple(point.entry for point in day)))
             profile = _Profile(Countability.UNKNOWN, None, None)
             continue
-        if not candidates:
-            continue
-        point = next(item for item in day if item.profile is not None)
-        next_profile = _merge(profile, point.profile)
+        next_profile = _merge(profile, day_profile)
         if when >= start:
-            if point.event_name in {"joined", "reinstated", "resigned", "expelled"}:
+            event_point = next((point for point in day if point.event_name in {"joined", "reinstated", "resigned", "expelled"}), None)
+            if event_point is not None:
                 if profile.countability is Countability.UNKNOWN:
-                    findings.append(MovementFinding("unknown_starting_state", "A lifecycle event cannot be counted without a known preceding state.", (point.entry,)))
+                    findings.append(MovementFinding("unknown_starting_state", "A lifecycle event cannot be counted without a known preceding state.", (event_point.entry,)))
                 elif next_profile.countability == profile.countability:
-                    findings.append(MovementFinding("repeated_lifecycle_event", "The event cannot represent a state change.", (point.entry,)))
+                    findings.append(MovementFinding("repeated_lifecycle_event", "The event cannot represent a state change.", (event_point.entry,)))
                 else:
-                    actions.append(point.event_name)
-            _transfers(profile, next_profile, when, point.entry, grouping, category)
+                    actions.append(event_point.event_name)
+            elif (
+                profile.countability is Countability.COUNTABLE
+                and next_profile.countability is Countability.NOT_COUNTABLE
+            ):
+                # A confirmed snapshot state change is an inferred exit, even
+                # when no separate lifecycle-event record names that exit.
+                actions.append("exited")
+            _transfers(profile, next_profile, when, tuple(point.entry for point in day), grouping, category)
         profile = next_profile
         used.extend(item.entry for item in day)
     opening = _profile_at(points, start, rules, entries)
@@ -235,11 +240,34 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
 def _profile_at(points: dict[date, list[_Point]], at: date, rules: LifecycleRules, entries: tuple[MemberLedgerEntry, ...]) -> _Profile:
     profile = _Profile(Countability.UNKNOWN, None, None)
     for when in sorted(day for day in points if day < at):
-        candidates = [point.profile for point in points[when] if point.profile is not None]
-        if len(set(candidates)) != 1:
+        day_profile = _day_profile(points[when])
+        if day_profile is None:
             return _Profile(Countability.UNKNOWN, None, None)
-        profile = _merge(profile, candidates[0])
+        profile = _merge(profile, day_profile)
     return profile
+
+
+def _day_profile(points: list[_Point]) -> _Profile | None:
+    """Combine same-day observations, treating unknown fields as unspecified.
+
+    A reviewed ``transferred`` event intentionally has unknown countability:
+    it only supplies Member Type and Category.  It can therefore agree with a
+    same-day snapshot whose countability is known, while two different known
+    values for any field remain a contradiction.
+    """
+    profiles = [point.profile for point in points if point.profile is not None]
+    if not profiles:
+        return _Profile(Countability.UNKNOWN, None, None)
+    countability = {profile.countability for profile in profiles if profile.countability is not Countability.UNKNOWN}
+    member_types = {profile.member_type for profile in profiles if profile.member_type}
+    categories = {profile.category for profile in profiles if profile.category}
+    if len(countability) > 1 or len(member_types) > 1 or len(categories) > 1:
+        return None
+    return _Profile(
+        next(iter(countability), Countability.UNKNOWN),
+        next(iter(member_types), None),
+        next(iter(categories), None),
+    )
 
 
 def _points(entries: tuple[MemberLedgerEntry, ...], end: date, rules: LifecycleRules) -> tuple[dict[date, list[_Point]], list[MovementFinding]]:
@@ -307,13 +335,13 @@ def _event_target_countability(event_name: str) -> Countability:
     return Countability.UNKNOWN
 
 
-def _transfers(old: _Profile, new: _Profile, when: date, entry: MemberLedgerEntry, grouping: list[DimensionTransfer], category: list[DimensionTransfer]) -> None:
+def _transfers(old: _Profile, new: _Profile, when: date, evidence: tuple[MemberLedgerEntry, ...], grouping: list[DimensionTransfer], category: list[DimensionTransfer]) -> None:
     if old.countability is not Countability.COUNTABLE or new.countability is not Countability.COUNTABLE:
         return
     if old.member_type and new.member_type and old.member_type != new.member_type:
-        grouping.append(DimensionTransfer("membership_grouping", old.member_type, new.member_type, when, (entry,)))
+        grouping.append(DimensionTransfer("membership_grouping", old.member_type, new.member_type, when, evidence))
     if old.category and new.category and old.category != new.category:
-        category.append(DimensionTransfer("category", old.category, new.category, when, (entry,)))
+        category.append(DimensionTransfer("category", old.category, new.category, when, evidence))
 
 
 def _day(value: date | datetime | None) -> date | None:

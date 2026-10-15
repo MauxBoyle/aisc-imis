@@ -6,15 +6,15 @@ and end-exclusive: `[start_date, end_date)`. It does not read exports, match
 identities, edit a ledger, or create a report.
 
 The result keeps gross lifecycle actions (`joined`, `reinstated`, `resigned`,
-and `expelled`) separate from net population change. A join followed by a
+`expelled`, and inferred snapshot `exited`) separate from net population change. A join followed by a
 resignation in one period is therefore visible as two gross actions while the
 net change is zero when the opening and closing countable populations match.
 
 Member Type is reported as the **membership grouping** dimension; Category is
 a second independent dimension. A countable-to-countable change in either
 dimension creates an outgoing and incoming transfer for that dimension, with
-no total-population effect. A countable-to-uncountable change is an exit, not a
-transfer. The reviewed `transferred` rule preserves the known countability
+no total-population effect. A countable-to-uncountable snapshot change creates
+an `exited` action, not a transfer. The reviewed `transferred` rule preserves the known countability
 state while recording either dimension movement.
 
 Use `EvidenceCorrection` (also available as `LedgerCorrection`) for a reviewed
