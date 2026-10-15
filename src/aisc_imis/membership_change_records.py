@@ -1,8 +1,8 @@
 """Read membership-change CSV evidence without inferring lifecycle events.
 
 This Python-facing adapter keeps each structurally valid transaction beside its
-parsed values.  Taxonomy mappings are review configuration: they can identify
-an unresolved or conflicting meaning, but never create a lifecycle fact.
+parsed values.  Taxonomy mappings are review configuration: they expose a
+reviewed classification but do not themselves create a lifecycle fact.
 """
 
 from __future__ import annotations
@@ -70,6 +70,7 @@ class MembershipChangeObservation:
     change_created: ParsedValue | None
     status: str | None
     change_effective: ParsedValue | None
+    change_classification: MembershipChangeClassification | None
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,11 @@ class MembershipChangeRecordsResult:
 
 
 @dataclass(frozen=True)
-class _TaxonomyMapping:
+class MembershipChangeClassification:
+    """A reviewed taxonomy classification, not a lifecycle conclusion."""
+
+    evidence_class: str
+    assertion_level: str
     draft_lifecycle_name: str
     countability_effect: str
 
@@ -177,7 +182,10 @@ def read_membership_change_records(
                 ("ChangeEffective", change_effective.findings),
             ):
                 findings.extend(_parse_findings(reference, field, value_findings))
-            findings.extend(_taxonomy_findings(reference, change_type.normalized, taxonomy))
+            classification, classification_findings = _classify_change_type(
+                reference, change_type.normalized, taxonomy
+            )
+            findings.extend(classification_findings)
             observations.append(
                 MembershipChangeObservation(
                     record=outcome,
@@ -189,6 +197,7 @@ def read_membership_change_records(
                     change_created=change_created.normalized,
                     status=status.normalized,
                     change_effective=change_effective.normalized,
+                    change_classification=classification,
                 )
             )
 
@@ -230,7 +239,10 @@ def _load_codebook(path: Path) -> tuple[Mapping[str, object], tuple[IngestionFin
 
 def _load_taxonomy(
     path: Path,
-) -> tuple[Mapping[str, tuple[_TaxonomyMapping, ...]], tuple[IngestionFinding, ...]]:
+) -> tuple[
+    Mapping[str, tuple[MembershipChangeClassification, ...]],
+    tuple[IngestionFinding, ...],
+]:
     required_headers = (
         "source",
         "field",
@@ -262,7 +274,7 @@ def _load_taxonomy(
                 )
                 for header in missing_headers
             )
-        mappings: dict[str, list[_TaxonomyMapping]] = defaultdict(list)
+        mappings: dict[str, list[MembershipChangeClassification]] = defaultdict(list)
         for row in reader:
             if row.get("source") != TAXONOMY_SOURCE or row.get("field") != TAXONOMY_FIELD:
                 continue
@@ -270,7 +282,9 @@ def _load_taxonomy(
             if not isinstance(code, str) or not code.strip():
                 continue
             mappings[code.strip()].append(
-                _TaxonomyMapping(
+                MembershipChangeClassification(
+                    evidence_class=(row.get("evidence_class") or "").strip(),
+                    assertion_level=(row.get("assertion_level") or "").strip(),
                     draft_lifecycle_name=(row.get("draft_lifecycle_name") or "").strip(),
                     countability_effect=(row.get("countability_effect") or "").strip(),
                 )
@@ -307,14 +321,14 @@ def _parse_findings(
     ]
 
 
-def _taxonomy_findings(
+def _classify_change_type(
     reference: SourceReference,
     change_type: str,
-    taxonomy: Mapping[str, tuple[_TaxonomyMapping, ...]],
-) -> list[IngestionFinding]:
+    taxonomy: Mapping[str, tuple[MembershipChangeClassification, ...]],
+) -> tuple[MembershipChangeClassification | None, list[IngestionFinding]]:
     mappings = taxonomy.get(change_type, ())
     if not mappings:
-        return [
+        return None, [
             IngestionFinding(
                 code="unmapped_change_type",
                 message=(
@@ -326,7 +340,7 @@ def _taxonomy_findings(
             )
         ]
     if len(set(mappings)) != 1:
-        return [
+        return None, [
             IngestionFinding(
                 code="conflicting_change_type_mapping",
                 message=(
@@ -342,7 +356,7 @@ def _taxonomy_findings(
         mapping.draft_lifecycle_name == "unknown"
         or mapping.countability_effect == "unresolved"
     ):
-        return [
+        return mapping, [
             IngestionFinding(
                 code="unresolved_change_type_mapping",
                 message=(
@@ -353,7 +367,7 @@ def _taxonomy_findings(
                 field="Change Type",
             )
         ]
-    return []
+    return mapping, []
 
 
 def _duplicate_findings(

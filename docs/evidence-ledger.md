@@ -58,3 +58,30 @@ missing required fields, and the wrong number of source references all raise
 Generated exports may be written locally under `data/processed/`, which is
 ignored by Git because it can contain operational data. This module itself does
 not write files.
+
+## Converting normalized iMIS observations
+
+`aisc_imis.evidence_conversion` is the small, non-CLI bridge from the four
+normalized source adapters to these ledger models. Its conversion functions
+return an `EvidenceConversionResult` with ordered immutable `records` and
+structured `findings`. They do not write an export, sort rows, join identities,
+or reconstruct a lifecycle.
+
+Current and historical snapshot observations emit one `SnapshotStateObservation`
+for every present normalized `member_type`, `status`, `is_member`, and
+`is_company` value. The state name is written as `field=value`, in adapter
+field order. The normalized iMIS ID is the `subject_key`; `Last Updated` is the
+`recorded_date`; historical rows also retain their configured coverage date as
+`observed_date`.
+
+Membership-change records use `ChangeID` as their `subject_key`. A reviewed
+taxonomy mapping with a lifecycle name becomes an inferred
+`CandidateLifecycleEvent`, with `ChangeEffective` as `effective_date` and
+`ChangeCreated` as `recorded_date`. Activity-history records use the normalized
+iMIS ID, `Effective Date`, and `Transaction Date` in the same roles. Unknown,
+conflicting, and unresolved mappings are retained as unresolved `ObservedFact`
+records and get conversion findings; they never become transitions.
+
+The reviewed `DUES` activity mapping is a special safeguard: it becomes a
+verified `payment_activity` fact, not a lifecycle event. Payment evidence can
+be useful in review, but it does not prove a membership transition.

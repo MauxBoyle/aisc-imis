@@ -378,6 +378,8 @@ def _classify_activity_type(
             )
         ]
     mapping = mappings[0]
+    if mapping.evidence_class == "payment activity" and mapping.assertion_level == "direct fact":
+        return mapping, []
     if (
         mapping.draft_lifecycle_name == "unknown"
         or mapping.countability_effect == "unresolved"

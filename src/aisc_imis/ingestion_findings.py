@@ -10,9 +10,10 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable, Protocol
+from typing import Protocol
 
 from aisc_imis.normalization_contracts import EvidenceRecord, ValidationRejection
 

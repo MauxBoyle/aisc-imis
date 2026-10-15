@@ -175,6 +175,19 @@ observed dates separate; preserves conflicting records; and can round-trip the
 models through one typed table format for local audit exports. Any generated
 ledger exports belong in ignored `data/processed/`.
 
+To turn normalized adapter observations into those ledger records, use the
+non-CLI functions in `aisc_imis.evidence_conversion`. They return immutable,
+input-ordered records plus structured conversion findings; they do not export,
+join identities, sort rows, or reconstruct a lifecycle. Normalized iMIS IDs
+are the ledger `subject_key` for current, historical, and activity rows;
+membership changes use `ChangeID`. Snapshot `Last Updated` is retained as a
+recorded date and historical configured coverage is an observed date.
+`ChangeEffective`/`ChangeCreated` and activity `Effective Date`/`Transaction
+Date` remain distinct effective/recorded dates. Only reviewed mappings with a
+lifecycle name create candidate events. Unresolved, unknown, or conflicting
+codes stay as unresolved facts with findings. The reviewed `DUES` activity is
+verified payment evidence only, never a membership transition.
+
 For scripts or future interfaces that need the confirmed current-state export,
 use the non-CLI `read_current_member_records` adapter with an explicit local CSV
 path (normally `data/processed/CSContactBasic_current.csv`) and the reviewed

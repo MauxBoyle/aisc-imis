@@ -8,6 +8,7 @@ This aggregate-only discovery records what the four local exports can support. I
 - State observations describe a snapshot or recorded state; they are not proof of a transition.
 - Possible inferences are unvalidated interpretations of event-candidate codes. They must be reviewed before use.
 - Payment activity never automatically creates a countable-status transition. Every countability effect remains unresolved until a later rule is validated.
+- `DUES` is confirmed direct payment evidence. It is retained for review, but never creates a lifecycle transition.
 
 The unvalidated draft vocabulary is `joined`, `reinstated`, `resigned`, `expelled`, `transferred`, `corrected`, and `other observed`. These are possible inferences, not rules.
 
