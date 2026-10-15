@@ -143,6 +143,29 @@ names and `Company ID` remain review-only. The membership-change export has no
 member-level `iMIS Id`, so `ChangeID` plus `Ordinal` is a transaction key only
 and cross-source member matching needs review.
 
+## Membership lifecycle evidence taxonomy
+
+Regenerate the aggregate-only lifecycle discovery document and reusable
+reviewer matrix from the four authorized local exports:
+
+```bash
+uv run python scripts/generate_membership_lifecycle_taxonomy.py
+```
+
+This writes `docs/membership-lifecycle-taxonomy.md` and
+`data/reference/lifecycle-evidence-taxonomy.csv`. The matrix preserves human
+review of a code's draft lifecycle name, countability effect, and note across
+regeneration. New codes default to `unknown` and `unresolved`.
+
+The report records evidence and uncertainty only. Snapshot fields are state
+observations; membership-change records are lifecycle-event candidates;
+paid-through evidence is payment activity; transaction identifiers are
+aggregate-only metadata; and unvalidated activity codes are unknown. No field
+automatically creates a countable-status transition. The draft vocabulary
+(`joined`, `reinstated`, `resigned`, `expelled`, `transferred`, `corrected`, and
+`other observed`) is not a rule set. Raw values for people, IDs, notes,
+descriptions, payment fields, and transaction identifiers are never rendered.
+
 ## Certified Domestic Fabricator reconciliation
 
 Compare a Salesforce Certified Domestic Fabricator CSV with an iMIS company
