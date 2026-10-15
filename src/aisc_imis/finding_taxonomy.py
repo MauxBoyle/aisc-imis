@@ -89,6 +89,8 @@ FINDING_RULES: dict[str, FindingRule] = {
     "company_dependent_conflict": _CONFLICT,
     "invalid_correction": _CONFLICT,
     "snapshot_state_conflict": _CONFLICT,
+    "possible_missing_transition": _UNCERTAIN,
+    "countability_difference": _CONFLICT,
     "repeated_lifecycle_event": _TRANSITION,
     "cyclic_correction": _TRANSITION,
     "balance_difference": _BALANCE,
