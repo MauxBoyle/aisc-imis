@@ -170,6 +170,50 @@ the input boundary. This adapter does not alter `combine_contact_snapshots`:
 the combined export has no original per-row run-date field, so configured
 coverage is deliberately not represented as source capture time.
 
+## Membership-change CSV adapter
+
+`aisc_imis.membership_change_records` is a reusable Python adapter for a
+caller-selected membership-change CSV. It has no CLI:
+
+```python
+from pathlib import Path
+
+from aisc_imis.membership_change_records import read_membership_change_records
+
+result = read_membership_change_records(
+    Path("data/raw/membership_changes.csv"),
+    Path("data/reference"),
+)
+```
+
+It returns immutable `MembershipChangeObservation` values, structural
+`ValidationRejection` values, and `IngestionFinding` values. Each accepted row
+keeps its `MembershipChange` contract with every raw named source field, source
+filename, and physical CSV row number. `ChangeID` and `Ordinal` stay text, so
+leading zeroes are not converted away. Duplicate `(ChangeID, Ordinal)` keys are
+reported for every involved row; the rows remain separate and in CSV order.
+
+The adapter checks member type and status against the reviewed codebooks in the
+given reference directory. It reads
+`lifecycle-evidence-taxonomy.csv` only for rows scoped to `Membership changes`
+and `Change Type`. A missing mapping, a mapping whose draft lifecycle is
+`unknown`, whose countability effect is `unresolved`, or conflicting mappings
+creates a finding. Even a fully reviewed mapping is configuration for review,
+not an inferred lifecycle transition: this adapter never joins a transaction to
+a member or asserts that a member joined, resigned, or changed status.
+
+`ChangeEffective`, `ChangeCreated`, and `ChangeUpdate` are parsed independently
+and exposed as separate fields. The first is optional; invalid supplied dates
+produce findings. The adapter does not sort these dates, assume one is the
+event date, or reconcile an out-of-order transaction sequence. Notes, other
+date columns, and code columns not explicitly parsed remain available through
+the raw record provenance.
+
+The taxonomy CSV is version-controlled review configuration. In contrast, raw
+inputs under `data/raw/`, generated adapter results, and exported findings can
+contain private operational data and remain ignored local files. Do not commit
+them.
+
 ## Privacy boundary
 
 The module is safe to use with authorized local source rows, but raw values can

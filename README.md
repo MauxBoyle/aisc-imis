@@ -177,6 +177,21 @@ lifecycle transitions. The observations are present-state evidence, not dated
 membership events. Inputs and any result or findings exports can contain private
 data, so keep them local and uncommitted.
 
+For a caller-supplied membership-change export, use the non-CLI
+`read_membership_change_records(csv_path, reference_directory)` adapter. It
+returns immutable observations, structural row rejections, and findings while
+preserving every accepted row's raw fields, filename, and physical CSV row
+number. It keeps `ChangeID` and `Ordinal` as text and reports duplicate keys
+without dropping either transaction. `ChangeEffective`, `ChangeCreated`, and
+`ChangeUpdate` are parsed separately; no date is silently selected as a
+lifecycle-event date and input rows are not sorted. The adapter checks only the
+`Membership changes` / `Change Type` rows of the version-controlled
+`data/reference/lifecycle-evidence-taxonomy.csv`. Missing, unresolved, or
+conflicting mappings are findings—not inferred lifecycle facts—and the adapter
+never joins a transaction to a member. Raw files in `data/raw/` and generated
+results or findings reports remain ignored local operational data because they
+can contain private information.
+
 ## Membership date semantics
 
 Create or refresh the aggregate-only date profiling report from authorized local
