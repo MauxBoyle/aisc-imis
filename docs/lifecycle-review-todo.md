@@ -4,6 +4,10 @@ This checklist records business-rule questions that are not yet settled. It is
 intended to support the membership-history roadmap; it is not an instruction to
 change any source export or historical record.
 
+The approved provisional decisions below are encoded from 2026-10-15 onward
+in the version-controlled [lifecycle rules](lifecycle-rules.md). Decisions
+that remain unchecked are deliberately findings, not inferred policy.
+
 ## Membership categories and countability
 
 - [x] Count these categories in membership reporting: Full (`ACT`), Associate
@@ -30,11 +34,12 @@ change any source export or historical record.
   for an Active Full member at a reporting cutoff.
 - [x] Treat `RESIGNED`, `EXPULSION`, `REINSTATE`, and joining activity as
   lifecycle transitions.
-- [x] Provisionally use `ChangeEffective` as the primary transition date.
-  Revisit this at the earliest opportunity after confirming legitimate
-  backdating; retain `ChangeCreated` as provenance and report differences.
+- [x] Use `ChangeCreated` as the default transition date. Retain
+  `ChangeEffective` in source provenance for later backdating review; do not
+  silently use it as the event date.
 - [ ] Ask whether legitimate backdating can make `ChangeEffective` differ from
-  `ChangeCreated`, and document permitted cases.
+  `ChangeCreated`, document permitted cases, and implement any approved
+  exception in a later phase.
 - [ ] Define the four annual expulsion batches: expected dates, approval
   authority, and how to handle a late or out-of-cycle expulsion.
 - [ ] Confirm whether an absence of DUES should merely trigger review of a
@@ -43,6 +48,9 @@ change any source export or historical record.
   in the provisional anomaly grids. Revisit this at the earliest opportunity.
 - [ ] Confirm the meaning and historical treatment of `Status=S` (presumed
   Suspended), including whether a recent/current `S` is always a finding.
+- [x] Retain contradictory evidence and send it to review. Implement reviewer
+  decisions and their effects in a later project phase; do not choose a
+  winning source automatically.
 
 ## Cross-field and group validation
 

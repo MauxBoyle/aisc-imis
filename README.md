@@ -333,6 +333,17 @@ observed` are possible inferences, not lifecycle rules. Payment evidence does
 not automatically create a countable-status transition, and all unreviewed
 meanings and countability effects remain `unknown` / `unresolved`.
 
+## Versioned lifecycle rules
+
+The reviewed [versioned lifecycle rules](docs/lifecycle-rules.md) provide a
+small, pure Python service for deciding countability from explicitly supplied
+observations and a reporting date. Its version-controlled configuration is
+`data/reference/lifecycle-rules.csv`; the first provisional version applies on
+and after 2026-10-15. It returns structured findings instead of guessing about
+unknown, missing, or conflicting inputs. It does not read exports, join people,
+or write reports, and `Status` remains outside membership decisions until that
+policy is separately approved.
+
 ## Membership-history architecture
 
 The privacy-safe [membership-history architecture baseline](docs/membership-history-architecture.md)
