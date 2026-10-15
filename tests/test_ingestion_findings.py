@@ -114,6 +114,31 @@ def test_report_classifies_and_retains_row_evidence_with_safe_markdown(tmp_path)
     assert "Ada &lt;Admin&gt;" in report.to_markdown()
 
 
+def test_report_includes_provisional_tandem_grids(tmp_path):
+    report = _report(tmp_path)
+    payload = report.to_dict()
+
+    assert "provisional" in payload["provisional_grid_notice"].lower()
+    current_member_type_status = next(
+        grid
+        for grid in payload["tandem_grids"]
+        if grid["source"] == "current"
+        and grid["row_label"] == "reporting Member Type"
+        and grid["column_label"] == "Status is A"
+    )
+    assert current_member_type_status == {
+        "source": "current",
+        "row_label": "reporting Member Type",
+        "column_label": "Status is A",
+        "row_true_column_true": 2,
+        "row_true_column_false": 0,
+        "row_false_column_true": 0,
+        "row_false_column_false": 0,
+        "excluded_observations": 1,
+    }
+    assert "Provisional state-consistency grids" in report.to_markdown()
+
+
 def test_cli_requires_inputs_and_writes_default_report_names(tmp_path):
     command = [sys.executable, "scripts/report_ingestion_findings.py"]
     missing_inputs = subprocess.run(command, capture_output=True, text=True)

@@ -131,6 +131,13 @@ an adapter remain available for later processing even if they also have a
 finding. Both outputs include raw source-row evidence and may contain private
 member data, so keep them local and uncommitted.
 
+The report also includes provisional 2×2 state-consistency grids for pairs of
+current/snapshot indicators: reporting Member Type, `Status=A`, `Is Member=True`,
+and company versus dependent-member-type status. They expose counts for each
+combination but do not make a membership decision or change source data. These
+are temporary assumptions and must be revisited at the earliest opportunity
+before they are used to exclude members or correct records.
+
 ## Membership date semantics
 
 Generate the aggregate-only date-semantics report for the same four membership
