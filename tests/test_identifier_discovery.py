@@ -45,6 +45,7 @@ def test_profiles_completeness_uniqueness_padding_and_normalized_collisions(tmp_
     assert imis.values_in_normalized_collision_groups == 2
     assert result.identifiers["Major Key"].blank_rows == 1
     assert result.identifiers["Company ID"].duplicate_nonblank_rows == 1
+    assert not hasattr(result, "_value_digests")
 
 
 def test_calculates_exact_intersections_and_denominator_based_match_rates(tmp_path):

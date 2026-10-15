@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import hmac
+import secrets
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,12 +51,19 @@ class IdentifierStats:
 
 @dataclass(frozen=True)
 class IdentifierSourceResult:
-    """Aggregate identifier results for one source, without source values."""
+    """Aggregate identifier results for one source, without per-value state."""
 
     source: IdentifierSource
     row_count: int
     identifiers: dict[str, IdentifierStats]
-    _value_digests: dict[str, frozenset[bytes]]
+
+
+@dataclass(frozen=True)
+class _ProfiledSource:
+    """Short-lived profiling state used only while comparisons are calculated."""
+
+    result: IdentifierSourceResult
+    value_digests: dict[str, frozenset[bytes]]
 
 
 @dataclass(frozen=True)
@@ -81,15 +90,19 @@ def build_identifier_map(
     sources: Iterable[IdentifierSource], comparisons: Iterable[IdentifierComparison]
 ) -> IdentifierMap:
     """Build aggregate identifier evidence without retaining source cell values."""
-    results = tuple(_profile_source(source) for source in sources)
-    by_name = {result.source.name: result for result in results}
+    digest_key = secrets.token_bytes(32)
+    profiled_sources = tuple(_profile_source(source, digest_key) for source in sources)
+    by_name = {profiled.result.source.name: profiled for profiled in profiled_sources}
     comparison_results = tuple(
         _compare_identifiers(comparison, by_name) for comparison in comparisons
     )
-    return IdentifierMap(sources=results, comparisons=comparison_results)
+    return IdentifierMap(
+        sources=tuple(profiled.result for profiled in profiled_sources),
+        comparisons=comparison_results,
+    )
 
 
-def _profile_source(source: IdentifierSource) -> IdentifierSourceResult:
+def _profile_source(source: IdentifierSource, digest_key: bytes) -> _ProfiledSource:
     if not source.path.is_file():
         raise IdentifierDiscoveryError(
             f"Configured source does not exist: {source.path}"
@@ -121,11 +134,11 @@ def _profile_source(source: IdentifierSource) -> IdentifierSourceResult:
                 if not value:
                     blank_rows[column] += 1
                     continue
-                value_digest = _digest(value)
+                value_digest = _digest(value, digest_key)
                 values[column].add(value_digest)
                 if _has_leading_zero(value):
                     leading_zero_values[column] += 1
-                normalized_digest = _digest(_without_numeric_padding(value))
+                normalized_digest = _digest(_without_numeric_padding(value), digest_key)
                 normalized_values[column].setdefault(normalized_digest, set()).add(
                     value_digest
                 )
@@ -150,22 +163,23 @@ def _profile_source(source: IdentifierSource) -> IdentifierSourceResult:
                 len(variants) for variants in collisions
             ),
         )
-    return IdentifierSourceResult(
-        source=source,
-        row_count=row_count,
-        identifiers=stats,
-        _value_digests={
+    result = IdentifierSourceResult(
+        source=source, row_count=row_count, identifiers=stats
+    )
+    return _ProfiledSource(
+        result=result,
+        value_digests={
             column: frozenset(digests) for column, digests in values.items()
         },
     )
 
 
 def _compare_identifiers(
-    comparison: IdentifierComparison, by_name: dict[str, IdentifierSourceResult]
+    comparison: IdentifierComparison, by_name: dict[str, _ProfiledSource]
 ) -> ComparisonResult:
     try:
-        left = by_name[comparison.left_source]._value_digests[comparison.left_column]
-        right = by_name[comparison.right_source]._value_digests[comparison.right_column]
+        left = by_name[comparison.left_source].value_digests[comparison.left_column]
+        right = by_name[comparison.right_source].value_digests[comparison.right_column]
     except KeyError as error:
         raise IdentifierDiscoveryError(
             f"Comparison {comparison.label!r} refers to an unknown source or column."
@@ -181,8 +195,9 @@ def _compare_identifiers(
     )
 
 
-def _digest(value: str) -> bytes:
-    return hashlib.sha256(value.encode("utf-8")).digest()
+def _digest(value: str, key: bytes) -> bytes:
+    """Return a per-run keyed digest that cannot be dictionary-attacked later."""
+    return hmac.new(key, value.encode("utf-8"), hashlib.sha256).digest()
 
 
 def _has_leading_zero(value: str) -> bool:
@@ -209,7 +224,9 @@ def render_markdown(identifier_map: IdentifierMap) -> str:
         "# Membership identifier map",
         "",
         "This document contains aggregate, non-reversible identifier evidence only. "
-        "It does not publish member IDs, company names, or other source values.",
+        "It does not publish member IDs, company names, or other source values. "
+        "Per-value keyed digests exist only during one profiling run and are not "
+        "included in the returned results.",
         "",
         "## Joining rules",
         "",
