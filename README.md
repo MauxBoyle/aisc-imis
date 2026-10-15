@@ -143,6 +143,11 @@ uv run python scripts/generate_membership_source_inventory.py
 The generated Markdown intentionally contains no member rows or source cell
 values. The raw and processed exports remain ignored local operational data.
 
+The [normalization contracts](docs/normalization-contracts.md) describe the
+immutable, source-row validation layer used before any matching or lifecycle
+interpretation. Its fixtures contain invented values only; private source
+exports in `data/raw/` and `data/processed/` remain ignored.
+
 ## Membership date semantics
 
 Create or refresh the aggregate-only date profiling report from authorized local
