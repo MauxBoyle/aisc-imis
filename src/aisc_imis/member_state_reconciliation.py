@@ -6,6 +6,7 @@ nor treats an unexplained change as proof that any source row is wrong.
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -120,16 +121,66 @@ def reconcile_member_states(
     dated = tuple((item, item.observation_date) for item in historical) + tuple(
         (item, current_export_date) for item in current
     )
-    records = tuple(entry.record for entry in evidence.entries)
+    records = [entry.record for entry in evidence.entries]
     for item, when in dated:
         if not item.subject_key.strip():
             raise ValueError("Observation subject_key must be nonblank.")
-        records += _as_snapshot_records(item, when)
+        records.extend(_as_snapshot_records(item, when))
     ledger = build_member_evidence_ledger(records)
     # Identical records can arrive both in the confirmed ledger and as supplied
     # observations. Keep one copy for comparison and stable evidence citations.
     entries = tuple({entry.record_id: entry for entry in ledger.entries}.values())
     entries = tuple(sorted(entries, key=lambda entry: entry.record_id))
+    snapshots: dict[tuple[str, date], list[MemberLedgerEntry]] = defaultdict(list)
+    field_snapshots: dict[tuple[str, str, date], list[MemberLedgerEntry]] = (
+        defaultdict(list)
+    )
+    snapshot_days: dict[str, set[date]] = defaultdict(set)
+    field_days: dict[tuple[str, str], set[date]] = defaultdict(set)
+    events_by_subject: dict[str, list[tuple[date, MemberLedgerEntry]]] = (
+        defaultdict(list)
+    )
+    target_index: dict[
+        tuple[str, SourceReference, date | None], list[MemberLedgerEntry]
+    ] = defaultdict(list)
+    for entry in entries:
+        record = entry.record
+        if isinstance(record, (SnapshotStateObservation, ObservedFact)):
+            target_index[
+                record.subject_key, record.source_reference, _day(record.observed_date)
+            ].append(entry)
+        if isinstance(record, SnapshotStateObservation):
+            day = _snapshot_day(entry)
+            if day is not None:
+                snapshots[record.subject_key, day].append(entry)
+                snapshot_days[record.subject_key].add(day)
+                field, separator, _ = record.state_name.partition("=")
+                if separator:
+                    field_snapshots[record.subject_key, field, day].append(entry)
+                    field_days[record.subject_key, field].add(day)
+        elif isinstance(record, CandidateLifecycleEvent):
+            event_date = _day(record.effective_date)
+            if event_date is not None:
+                events_by_subject[record.subject_key].append((event_date, entry))
+    ordered_snapshot_days = {
+        subject: tuple(sorted(days)) for subject, days in snapshot_days.items()
+    }
+    ordered_field_days = {
+        key: tuple(sorted(days)) for key, days in field_days.items()
+    }
+    ordered_events = {
+        subject: tuple(
+            sorted(
+                group,
+                key=lambda pair: (pair[0], pair[1].record_id),
+            )
+        )
+        for subject, group in events_by_subject.items()
+    }
+    event_days = {
+        subject: tuple(day for day, _ in group)
+        for subject, group in ordered_events.items()
+    }
     targets: dict[
         tuple[str, date],
         list[tuple[MembershipObservation, tuple[MemberLedgerEntry, ...]]],
@@ -137,12 +188,7 @@ def reconcile_member_states(
     for item, when in dated:
         if when is not None:
             target_entries = tuple(
-                entry
-                for entry in entries
-                if isinstance(entry.record, (SnapshotStateObservation, ObservedFact))
-                and entry.record.subject_key == item.subject_key
-                and entry.record.source_reference == item.source_reference
-                and _day(entry.record.observed_date) == when
+                target_index.get((item.subject_key, item.source_reference, when), ())
             )
             targets[item.subject_key, when].append((item, target_entries))
 
@@ -177,14 +223,7 @@ def reconcile_member_states(
     ):
         if when is None:
             undated = tuple(
-                entry
-                for entry in entries
-                if (
-                    isinstance(entry.record, (SnapshotStateObservation, ObservedFact))
-                    and entry.record.subject_key == item.subject_key
-                    and entry.record.source_reference == item.source_reference
-                    and entry.record.observed_date is None
-                )
+                target_index.get((item.subject_key, item.source_reference, None), ())
             )
             findings.append(
                 build_finding(
@@ -200,36 +239,55 @@ def reconcile_member_states(
                 )
             )
             continue
-        target_entries = dict(targets[item.subject_key, when])[item]
-        earlier = tuple(
-            entry
-            for entry in entries
-            if (
-                entry.record.subject_key == item.subject_key
-                and isinstance(entry.record, SnapshotStateObservation)
-                and (_snapshot_day(entry) or date.max) < when
-            )
+        target_entries = tuple(
+            target_index.get((item.subject_key, item.source_reference, when), ())
         )
-        latest_day = max((_snapshot_day(entry) for entry in earlier), default=None)
-        prior = tuple(entry for entry in earlier if _snapshot_day(entry) == latest_day)
-        intervening_events = tuple(
+        latest_day = _latest_before(ordered_snapshot_days.get(item.subject_key, ()), when)
+        prior = (
+            tuple(snapshots.get((item.subject_key, latest_day), ()))
+            if latest_day else ()
+        )
+        type_day = _latest_before(
+            ordered_field_days.get((item.subject_key, "member_type"), ()), when
+        )
+        status_day = _latest_before(
+            ordered_field_days.get((item.subject_key, "status"), ()), when
+        )
+        type_support = (
+            tuple(field_snapshots.get((item.subject_key, "member_type", type_day), ()))
+            if type_day else ()
+        )
+        status_support = (
+            tuple(field_snapshots.get((item.subject_key, "status", status_day), ()))
+            if status_day else ()
+        )
+        # Count events start after the latest snapshot; type events start after
+        # the latest snapshot that actually supplies Member Type.
+        subject_events = ordered_events.get(item.subject_key, ())
+        subject_event_days = event_days.get(item.subject_key, ())
+        event_start = bisect_right(subject_event_days, type_day) if type_day else 0
+        event_end = bisect_right(subject_event_days, when)
+        applicable_events = tuple(
             entry
-            for entry in entries
+            for _, entry in subject_events[event_start:event_end]
             if (
-                entry.record.subject_key == item.subject_key
-                and isinstance(entry.record, CandidateLifecycleEvent)
-                and _day(entry.record.effective_date) is not None
-                and _day(entry.record.effective_date) <= when
-                and (
+                (
                     _day(entry.record.recorded_date)
                     or _day(entry.record.observed_date)
                     or date.max
                 )
                 <= when
-                and (
-                    latest_day is None or _day(entry.record.effective_date) > latest_day
-                )
                 and _event_target(entry, when, rules) is not None
+            )
+        )
+        intervening_events = tuple(
+            entry
+            for entry in applicable_events
+            if (
+                latest_day is None or _day(entry.record.effective_date) > latest_day
+            ) or (
+                entry.record.member_type
+                and (type_day is None or _day(entry.record.effective_date) > type_day)
             )
         )
         unresolved = tuple(
@@ -237,21 +295,33 @@ def reconcile_member_states(
             for entry in intervening_events
             if entry.record.interpretation_status in {"ambiguous", "unresolved"}
         )
-        events = tuple(entry for entry in intervening_events if entry not in unresolved)
+        unresolved_ids = {entry.record_id for entry in unresolved}
+        events = tuple(
+            entry for entry in intervening_events
+            if entry.record_id not in unresolved_ids
+        )
+        count_events = tuple(
+            entry for entry in events
+            if latest_day is None or _day(entry.record.effective_date) > latest_day
+        )
         event_day = max(
-            (_day(entry.record.effective_date) for entry in events), default=None
+            (_day(entry.record.effective_date) for entry in count_events), default=None
         )
         latest_events = tuple(
-            entry for entry in events if _day(entry.record.effective_date) == event_day
+            entry
+            for entry in count_events
+            if _day(entry.record.effective_date) == event_day
         )
-        prior_values = _values(prior)
-        expected_type = _single(prior_values["member_type"])
-        expected_status = _single(prior_values["status"])
-        type_support = prior
+        expected_type = _single(_values(type_support)["member_type"])
+        expected_status = _single(_values(status_support)["status"])
         count_support = prior
         # Only an event with an explicit Member Type can update that field.
         # Later events without one leave the last supported type in place.
-        typed_events = tuple(entry for entry in events if entry.record.member_type)
+        typed_events = tuple(
+            entry for entry in events
+            if entry.record.member_type
+            and (type_day is None or _day(entry.record.effective_date) > type_day)
+        )
         if typed_events:
             type_day = max(_day(entry.record.effective_date) for entry in typed_events)
             type_support = tuple(
@@ -259,9 +329,7 @@ def reconcile_member_states(
                 for entry in typed_events
                 if _day(entry.record.effective_date) == type_day
             )
-            expected_type = _single(
-                {entry.record.member_type for entry in type_support}
-            )
+            expected_type = _single({entry.record.member_type for entry in type_support})
         if latest_events:
             count_support = latest_events
 
@@ -312,7 +380,7 @@ def reconcile_member_states(
         differences = []
         for field, expected, observed, field_support in (
             ("member_type", expected_type, item.member_type, type_support),
-            ("status", expected_status, item.status, prior),
+            ("status", expected_status, item.status, status_support),
         ):
             if expected is not None and observed is not None and expected != observed:
                 differences.append(field)
@@ -372,7 +440,7 @@ def reconcile_member_states(
                     sorted(
                         {
                             entry.record_id
-                            for entry in (*type_support, *prior, *count_support)
+                            for entry in (*type_support, *status_support, *count_support)
                         }
                     )
                 ),
@@ -411,6 +479,11 @@ def _day(value: date | datetime | None) -> date | None:
 def _snapshot_day(entry: MemberLedgerEntry) -> date | None:
     record = entry.record
     return _day(record.observed_date) or _day(record.effective_date)
+
+
+def _latest_before(days: tuple[date, ...], when: date) -> date | None:
+    position = bisect_left(days, when)
+    return days[position - 1] if position else None
 
 
 def _values(entries: tuple[MemberLedgerEntry, ...]) -> dict[str, set[object]]:
