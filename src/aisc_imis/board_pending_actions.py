@@ -46,6 +46,7 @@ class ActionRevision:
     desired_countable: bool | None = None
     desired_category: str | None = None
     desired_member_type: str | None = None
+    member_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,7 @@ _OPTIONAL = frozenset(
         "desired_countable",
         "desired_category",
         "desired_member_type",
+        "member_type",
     }
 )
 _CORRECTION = frozenset(
@@ -196,6 +198,10 @@ def _parse_revision(raw: object, index: int) -> ActionRevision:
     elif _CORRECTION.intersection(raw):
         fields = sorted(_CORRECTION.intersection(raw))
         raise ValueError(f"{label} fields {fields} require action_kind correction.")
+    if "member_type" in raw and kind is not ActionKind.NEW_MEMBER_APPROVAL:
+        raise ValueError(
+            f"{label}.member_type requires action_kind new-member-approval."
+        )
     if status is ActionStatus.RECORDED_IN_IMIS and "imis_record_ref" not in raw:
         raise ValueError(f"{label}.imis_record_ref is required for recorded-in-iMIS.")
 
@@ -221,6 +227,7 @@ def _parse_revision(raw: object, index: int) -> ActionRevision:
         desired_countable=countable,
         desired_category=_optional_string(raw, "desired_category", label),
         desired_member_type=_optional_string(raw, "desired_member_type", label),
+        member_type=_optional_string(raw, "member_type", label),
     )
 
 

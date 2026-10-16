@@ -1,5 +1,6 @@
 """Invented members test effective periods and later knowledge cutoffs."""
 
+import json
 from datetime import date
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from aisc_imis.board_pending_actions import (
     BoardAction,
     BoardPendingActions,
     PossibleDuplicateAction,
+    load_board_pending_actions,
 )
 from aisc_imis.evidence_ledger import CandidateLifecycleEvent, SnapshotStateObservation
 from aisc_imis.lifecycle_period_movements import EvidenceCorrection
@@ -337,6 +339,53 @@ def test_m3_mapping_and_rejected_withdrawn_reasons():
         ActionStatus.WITHDRAWN,
     }
     assert all(row.reason for row in result.noncounted)
+
+
+def test_validated_board_approval_uses_approved_member_type(tmp_path):
+    fields = {
+        "action_id": "add",
+        "member_ref": "new",
+        "action_kind": "new-member-approval",
+        "recorded_by": "Invented secretary",
+        "rationale": "Invented reason",
+        "source_document_ref": "minutes/p1",
+    }
+    revisions = [
+        {
+            **fields,
+            "revision_id": "add-1",
+            "status": "approved",
+            "status_date": "2027-01-01",
+            "member_type": "ASSOC",
+        },
+        {
+            **fields,
+            "revision_id": "add-2",
+            "prior_revision_id": "add-1",
+            "status": "recorded-in-iMIS",
+            "status_date": "2027-04-10",
+            "imis_record_ref": "invented-entry",
+        },
+    ]
+    path = tmp_path / "board_actions.json"
+    path.write_text(
+        json.dumps({"version": 1, "revisions": revisions}), encoding="utf-8"
+    )
+    board_actions = load_board_pending_actions(path)
+
+    result = classify_quarterly_movements(
+        (),
+        START,
+        END,
+        date(2027, 4, 15),
+        RULES,
+        board_actions,
+        ("A",),
+        join_measures={"ASSOC": "M3"},
+    )
+
+    assert [(row.action_id, row.measure) for row in result.counted] == [("add", "M3")]
+    assert result.closing_board_view.adjusted.member_types["ASSOC"].confirmed_count == 1
 
 
 def test_join_measure_uses_member_type_at_join_before_later_transfer():

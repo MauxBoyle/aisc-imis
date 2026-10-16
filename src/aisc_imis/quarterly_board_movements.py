@@ -250,7 +250,7 @@ def classify_quarterly_movements(
             counted.append(
                 QuarterlyMovementRow(
                     key,
-                    measures.get(revision.desired_member_type or "", "M2")
+                    measures.get(approved.member_type or "", "M2")
                     if revision.action_kind is ActionKind.NEW_MEMBER_APPROVAL
                     else "M5",
                     "joined"

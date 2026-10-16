@@ -6,7 +6,7 @@ The effective date places a movement in the period. The recorded date decides wh
 
 The result contains `counted` member rows, `noncounted` visible Board rows, `operational_total_change`, `board_adjusted_total_change`, the operational balance, opening and closing Board views, transfers, applied corrections, and findings. Counted rows include the M2–M5 measure, action, effective date, available proposed/approved/recorded dates, reason, and ledger evidence or Board action ID and document reference. Every noncounted Board row has a reason. `None` means a total cannot be established from the evidence.
 
-By default, joins use M2. Pass `join_measures={"ASSOC": "M3"}` to assign a Member Type to M3. Resignations and reinstatements use M4; expulsions use M5. Category and Member Type transfers remain separate from joins and exits. Board corrections stay visible as separate, noncounted actions and affect the Board views when eligible.
+By default, joins use M2. Pass `join_measures={"ASSOC": "M3"}` to assign a Member Type to M3. For a Board-only join, put `"member_type": "ASSOC"` on its approved new-member revision. If it is absent or unmapped, that join uses M2. Resignations and reinstatements use M4; expulsions use M5. Category and Member Type transfers remain separate from joins and exits. Board corrections stay visible as separate, noncounted actions and affect the Board views when eligible.
 
 ```python
 from datetime import date

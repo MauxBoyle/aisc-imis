@@ -194,7 +194,8 @@ def build_board_adjusted_membership(
                 states[key] = BoardMemberState(
                     key,
                     movement.closing_category if movement else None,
-                    movement.closing_member_type if movement else None,
+                    approval.member_type
+                    or (movement.closing_member_type if movement else None),
                     action_id,
                     approval.rationale,
                     approval.source_document_ref,
