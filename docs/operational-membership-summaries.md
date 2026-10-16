@@ -13,6 +13,9 @@ its `overall.difference` and per-Category differences are never silently
 converted into adjustments. The summary does not accept Board adjustments.
 Members whose first dated lifecycle evidence is after the as-of date do not
 enter that earlier summary.
+The period's member-level movement analysis is also available as
+`result.movement`; the [trends service](membership-trends.md) uses it for
+decision records.
 
 This synthetic example builds a small ledger in memory:
 

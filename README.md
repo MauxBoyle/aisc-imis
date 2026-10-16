@@ -154,6 +154,14 @@ definitive totals unset, and nonzero or indeterminate balance differences stay
 visible. Board adjustments are outside this operational calculation. The linked
 guide includes a synthetic Python example and a month-end selector.
 
+The [membership trends guide](docs/membership-trends.md) shows how to call
+`build_membership_trends(entries, as_of_dates, category_codes, rules,
+corrections=())`. It compares consecutive dates and returns overall and
+Category rows plus source-backed member decisions. Rows show confirmed counts,
+definitive counts when known, movements, net change, and the existing balance
+difference. Missing evidence leaves definitive totals or net change as `None`;
+the service does not format a report or add balancing movements.
+
 The aggregate-only [membership source inventory](docs/membership-source-inventory.md)
 documents the schemas and observed coverage of the four membership inputs. To
 refresh it from authorized local exports, run:
