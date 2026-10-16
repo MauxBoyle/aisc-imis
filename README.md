@@ -12,6 +12,12 @@ uv run --env-file .env aisc_imis
 uv run python -m aisc_imis
 ```
 
+## Board report package
+
+Build local M1–M5 CSVs, member evidence, findings, and a fingerprinted manifest with one command. Prepare the four membership exports, new-member IQA export, Board actions JSON, review registry JSON, and reviewed reference tables first. Supply the period start, operational as-of date, Board cutoff, and current-export date; the program uses the day after the as-of date as the exclusive period end. The current-export date cannot exceed the cutoff. Review `findings.csv` and M1 statuses before sharing the package. Reviewed findings remain visible, and incomplete historical evidence can leave totals unknown.
+
+See [Board report package](docs/board-report-package.md) for the full command, input preparation, output list, review steps, and historical limits. Keep source and review files under ignored `data/raw/` or `data/processed/`, and package outputs under ignored `reports/`.
+
 ## iMIS reference tables
 
 Create or refresh the version-controlled iMIS reference tables from a local
