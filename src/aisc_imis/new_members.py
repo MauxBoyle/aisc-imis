@@ -184,7 +184,9 @@ def build_m2_m3_new_members(
                 )
             )
         seen.add(key)
-        imis_id = movement.subject_key
+        # Board-only joins may use a local member reference as their subject key.
+        imis_id = movement.subject_key if movement.evidence else ""
+        action_ids: set[str] = set()
         if movement.action_id:
             action = next(
                 (
@@ -222,6 +224,16 @@ def build_m2_m3_new_members(
                             ),
                         )
                     )
+        if not movement.evidence and not action_ids:
+            findings.append(
+                NewMemberFinding(
+                    "missing_board_imis_id",
+                    movement.subject_key,
+                    "Board-only join has no explicit iMIS ID in visible revisions; "
+                    "the member reference is not an iMIS ID.",
+                    (movement.action_id,) if movement.action_id else (),
+                )
+            )
         matches = by_id.get(imis_id, []) if imis_id else []
         refs = tuple(_iqa_ref(row) for row in matches)
         unique = {
