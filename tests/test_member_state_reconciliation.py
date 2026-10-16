@@ -5,7 +5,11 @@ from datetime import date
 
 import pytest
 
-from aisc_imis.evidence_ledger import CandidateLifecycleEvent, InterpretationStatus
+from aisc_imis.evidence_ledger import (
+    CandidateLifecycleEvent,
+    InterpretationStatus,
+    SnapshotStateObservation,
+)
 from aisc_imis.lifecycle_rules import load_lifecycle_rules
 from aisc_imis.member_ledger import build_member_evidence_ledger
 from aisc_imis.member_state_reconciliation import (
@@ -168,6 +172,15 @@ def test_countability_difference_after_reviewed_event():
     }
 
 
+def test_reviewed_event_on_comparison_date_is_available():
+    result = run(
+        (obs("opening", D1),),
+        (obs("target", D2, member_type="FACT"),),
+        (event("resigned", D2, member_type="FACT"),),
+    )
+    assert result.comparisons[-1].outcome == "match"
+
+
 def test_status_only_snapshot_preserves_reviewed_countability_transition():
     partial = replace(
         obs("status_only", date(2026, 10, 19), status="S"),
@@ -192,7 +205,7 @@ def test_status_only_snapshot_preserves_reviewed_countability_transition():
     }
 
 
-def test_partial_countability_snapshot_reports_unknown_baseline():
+def test_partial_countability_snapshot_preserves_earlier_event():
     partial = replace(
         obs("partial", date(2026, 10, 19), member_type="FACT"),
         is_company=None,
@@ -204,15 +217,76 @@ def test_partial_countability_snapshot_reports_unknown_baseline():
         (event("resigned", date(2026, 10, 18)),),
     )
     comparison = result.comparisons[-1]
+    assert comparison.expected_countability == "not_countable"
+    assert comparison.outcome == "match"
+    assert "unassessable_countability_snapshot" not in {
+        item.code for item in result.findings
+    }
+
+
+def test_late_recorded_snapshot_does_not_change_earlier_comparison():
+    late = SnapshotStateObservation(
+        "synthetic-1",
+        "status=S",
+        SourceReference("late.csv", "one"),
+        effective_date=date(2026, 10, 17),
+        recorded_date=date(2026, 10, 21),
+    )
+    result = run((obs("opening", D1),), (obs("target", D2),), (late,))
+    comparison = result.comparisons[-1]
+    assert comparison.expected_status == "A"
+    assert comparison.outcome == "match"
+
+
+def test_late_recorded_event_does_not_change_earlier_comparison():
+    late = replace(event("late", date(2026, 10, 18)), recorded_date=date(2026, 10, 21))
+    result = run((obs("opening", D1),), (obs("target", D2),), (late,))
+    assert result.comparisons[-1].expected_countability == "countable"
+    assert result.comparisons[-1].outcome == "match"
+
+
+def test_partial_snapshot_carries_earlier_fields_forward():
+    partial = replace(
+        obs("partial", date(2026, 10, 19), status="S"),
+        member_type=None,
+        is_company=None,
+        is_member=None,
+    )
+    result = run((obs("opening", D1), partial), (obs("target", D2, status="S"),))
+    comparison = result.comparisons[-1]
+    assert comparison.expected_member_type == "ACT"
+    assert comparison.expected_countability == "countable"
+    assert comparison.outcome == "match"
+
+
+def test_conflicting_same_day_events_leave_countability_unknown_with_finding():
+    result = run(
+        (obs("opening", D1),),
+        (obs("target", D2),),
+        (
+            event("resigned", date(2026, 10, 18)),
+            event("joined", date(2026, 10, 18), name="joined"),
+        ),
+    )
+    comparison = result.comparisons[-1]
     assert comparison.expected_countability is None
+    assert comparison.outcome == "unassessable"
     finding = next(
-        item for item in result.findings
-        if item.code == "unassessable_countability_snapshot"
+        item for item in result.findings if item.code == "same_day_state_contradiction"
     )
     assert {source.row_reference for source in finding.sources} == {
-        "partial",
+        "resigned",
+        "joined",
         "target",
     }
+
+
+def test_missing_supported_field_prevents_match_and_creates_finding():
+    opening = replace(obs("opening", D1), status=None)
+    target = obs("target", D2)
+    result = run((opening,), (target,))
+    assert result.comparisons[-1].outcome == "unassessable"
+    assert "unassessable_state_field" in {finding.code for finding in result.findings}
 
 
 def test_complete_snapshot_supersedes_earlier_countability_event():
@@ -224,7 +298,8 @@ def test_complete_snapshot_supersedes_earlier_countability_event():
     comparison = result.comparisons[-1]
     assert comparison.expected_countability == "countable"
     assert not [
-        finding for finding in result.findings
+        finding
+        for finding in result.findings
         if finding.scope.startswith(D2.isoformat())
     ]
 
