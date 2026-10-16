@@ -255,6 +255,13 @@ and ledger source references. The builder checks list counts against classified
 M4 counts and the balance terms, and returns unresolved evidence or mismatches
 as review findings.
 
+The [M5 expulsions guide](docs/m5-expulsions.md) shows how to build separate
+pending proposal and completed expulsion CSV lists from the quarterly classifier
+and validated Board actions. Eligible approvals count when effective, even before
+iMIS records them. Completed rows show whether operational history confirms the
+expulsion. Rejected and withdrawn cases, ambiguous matches, and count differences
+remain findings. Write private lists under ignored `reports/`.
+
 The [M1 membership numbers guide](docs/m1-membership-numbers.md) describes the
 aggregate overall and source Category rows. `build_m1_membership_numbers()`
 combines a period balance with opening and closing Board views. Each row shows
