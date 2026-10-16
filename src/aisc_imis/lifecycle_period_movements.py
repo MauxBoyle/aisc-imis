@@ -72,6 +72,14 @@ class DimensionTransfer:
 
 
 @dataclass(frozen=True)
+class DatedLifecycleAction:
+    action: str
+    effective_date: date
+    category: str | None
+    supporting_evidence: tuple[MemberLedgerEntry, ...]
+
+
+@dataclass(frozen=True)
 class MemberMovementContributor:
     subject_key: str
     opening_countability: Countability
@@ -81,6 +89,11 @@ class MemberMovementContributor:
     category_transfers: tuple[DimensionTransfer, ...]
     supporting_evidence: tuple[MemberLedgerEntry, ...]
     findings: tuple[MovementFinding, ...]
+    opening_category: str | None = None
+    closing_category: str | None = None
+    opening_evidence: tuple[MemberLedgerEntry, ...] = ()
+    closing_evidence: tuple[MemberLedgerEntry, ...] = ()
+    dated_actions: tuple[DatedLifecycleAction, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -200,6 +213,7 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
     points, findings = _points(entries, end, rules)
     profile = _Profile(Countability.UNKNOWN, None, None)
     actions: list[str] = []
+    dated_actions: list[DatedLifecycleAction] = []
     grouping: list[DimensionTransfer] = []
     category: list[DimensionTransfer] = []
     used: list[MemberLedgerEntry] = []
@@ -220,6 +234,8 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
                     findings.append(MovementFinding("repeated_lifecycle_event", "The event cannot represent a state change.", (event_point.entry,)))
                 else:
                     actions.append(event_point.event_name)
+                    action_category = next_profile.category if next_profile.countability is Countability.COUNTABLE else profile.category
+                    dated_actions.append(DatedLifecycleAction(event_point.event_name, when, action_category, tuple(point.entry for point in day)))
             elif (
                 profile.countability is Countability.COUNTABLE
                 and next_profile.countability is Countability.NOT_COUNTABLE
@@ -227,6 +243,7 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
                 # A confirmed snapshot state change is an inferred exit, even
                 # when no separate lifecycle-event record names that exit.
                 actions.append("exited")
+                dated_actions.append(DatedLifecycleAction("exited", when, profile.category, tuple(point.entry for point in day)))
             _transfers(profile, next_profile, when, tuple(point.entry for point in day), grouping, category)
         profile = next_profile
         used.extend(item.entry for item in day)
@@ -234,7 +251,9 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
     closing = profile
     if opening.countability is Countability.UNKNOWN:
         findings.append(MovementFinding("unknown_starting_state", "No confirmed countability state covers the period start."))
-    return MemberMovementContributor(subject_key, opening.countability, closing.countability, tuple(actions), tuple(grouping), tuple(category), tuple(used), tuple(findings))
+    opening_evidence = tuple(point.entry for when in sorted(points) if when < start for point in points[when])
+    closing_evidence = tuple(used)
+    return MemberMovementContributor(subject_key, opening.countability, closing.countability, tuple(actions), tuple(grouping), tuple(category), tuple(used), tuple(findings), opening.category, closing.category, opening_evidence, closing_evidence, tuple(dated_actions))
 
 
 def _profile_at(points: dict[date, list[_Point]], at: date, rules: LifecycleRules, entries: tuple[MemberLedgerEntry, ...]) -> _Profile:
