@@ -181,6 +181,15 @@ supported history. It returns immutable comparison results and source-linked
 review findings. A missing baseline is `unassessable`, while a supported
 difference is a `discrepancy`; neither automatically changes a member record.
 
+The [reviewed exception registry](docs/reviewed-exception-registry.md) lets a
+reviewer attach an `accepted` or `explained` outcome to a current finding. Copy
+the empty [registry template](config/review_registry.json) to
+`data/processed/review_registry.json`, then add the finding identity, reviewer,
+rationale, and dates. The service marks changed evidence as stale and reports
+expired or unmatched entries for another review. It leaves findings and member
+state unchanged. Keep member keys and private notes in the ignored local file;
+the tracked template stays empty.
+
 For an ordered view of evidence for already-confirmed member keys, use the
 non-CLI member ledger service. This synthetic example preserves every record
 and writes only to a caller-chosen local path:
