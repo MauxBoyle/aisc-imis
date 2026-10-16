@@ -94,6 +94,8 @@ class MemberMovementContributor:
     opening_evidence: tuple[MemberLedgerEntry, ...] = ()
     closing_evidence: tuple[MemberLedgerEntry, ...] = ()
     dated_actions: tuple[DatedLifecycleAction, ...] = ()
+    opening_member_type: str | None = None
+    closing_member_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -253,7 +255,7 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
         findings.append(MovementFinding("unknown_starting_state", "No confirmed countability state covers the period start."))
     opening_evidence = tuple(point.entry for when in sorted(points) if when < start for point in points[when])
     closing_evidence = tuple(used)
-    return MemberMovementContributor(subject_key, opening.countability, closing.countability, tuple(actions), tuple(grouping), tuple(category), tuple(used), tuple(findings), opening.category, closing.category, opening_evidence, closing_evidence, tuple(dated_actions))
+    return MemberMovementContributor(subject_key, opening.countability, closing.countability, tuple(actions), tuple(grouping), tuple(category), tuple(used), tuple(findings), opening.category, closing.category, opening_evidence, closing_evidence, tuple(dated_actions), opening.member_type, closing.member_type)
 
 
 def _profile_at(points: dict[date, list[_Point]], at: date, rules: LifecycleRules, entries: tuple[MemberLedgerEntry, ...]) -> _Profile:
@@ -324,7 +326,8 @@ def _points(entries: tuple[MemberLedgerEntry, ...], end: date, rules: LifecycleR
         if decision.countability is Countability.UNKNOWN:
             findings.append(MovementFinding("unresolved_lifecycle_evidence", "Snapshot evidence has no approved countability state.", tuple(grouped)))
             continue
-        output[when].append(_Point(when, _Profile(decision.countability, values.get("member_type"), values.get("category")), None, grouped[0]))
+        profile = _Profile(decision.countability, values.get("member_type"), values.get("category"))
+        output[when].extend(_Point(when, profile, None, entry) for entry in grouped)
     return output, findings
 
 

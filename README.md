@@ -145,6 +145,15 @@ uv run pytest --cov
 
 ## Documentation
 
+The [operational membership summary](docs/operational-membership-summaries.md)
+counts confirmed members on an as-of date by source Category and Member Type
+code. Pass an explicit prior cutoff; the reconciliation period runs from the
+next day through the as-of date, inclusive. The pure API returns member-level
+evidence, uncertainty, findings, and the period balance. Unknown states leave
+definitive totals unset, and nonzero or indeterminate balance differences stay
+visible. Board adjustments are outside this operational calculation. The linked
+guide includes a synthetic Python example and a month-end selector.
+
 The aggregate-only [membership source inventory](docs/membership-source-inventory.md)
 documents the schemas and observed coverage of the four membership inputs. To
 refresh it from authorized local exports, run:
