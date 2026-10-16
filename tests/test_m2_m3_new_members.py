@@ -306,3 +306,78 @@ def test_operational_join_shows_board_history_and_iqa_type_disagreement(tmp_path
     )
     assert result.m2[0].board_evidence_ref == "approval:minutes/p2"
     assert any(f.code == "iqa_member_type_disagreement" for f in result.findings)
+
+
+def test_board_join_uses_id_from_earlier_visible_revision(tmp_path):
+    proposed = ActionRevision(
+        "approval",
+        "approval-1",
+        None,
+        "member-reference",
+        ActionKind.NEW_MEMBER_APPROVAL,
+        ActionStatus.PROPOSED,
+        START,
+        "Secretary",
+        "Invented action",
+        "minutes/p1",
+        imis_id="00123",
+        member_type="ACT",
+    )
+    approved = ActionRevision(
+        "approval",
+        "approval-2",
+        proposed.revision_id,
+        proposed.member_ref,
+        ActionKind.NEW_MEMBER_APPROVAL,
+        ActionStatus.APPROVED,
+        date(2027, 3, 31),
+        "Secretary",
+        "Invented action",
+        "minutes/p2",
+        effective_date=date(2027, 3, 31),
+        member_type="ACT",
+    )
+    action = BoardAction(
+        "approval", proposed.member_ref, ActionKind.NEW_MEMBER_APPROVAL,
+        (proposed, approved),
+    )
+    actions = BoardPendingActions((action,), ())
+    movements = classify(actions=actions.actions)
+    assert movements.counted[0].subject_key == "member-reference"
+    iqa = iqa_file(tmp_path / "iqa.csv", [detail("00123")])
+
+    result = build_m2_m3_new_members(movements, iqa, actions)
+
+    assert len(result.m2) == 1
+    assert result.m2[0].imis_id == "00123"
+    assert result.m2[0].company == "Example"
+    assert result.m2[0].board_action_status == "approved"
+    assert result.m2[0].board_evidence_ref == "approval:minutes/p2"
+    assert not result.findings
+
+    conflicting = ActionRevision(
+        "approval",
+        "approval-3",
+        approved.revision_id,
+        approved.member_ref,
+        ActionKind.NEW_MEMBER_APPROVAL,
+        ActionStatus.APPROVED,
+        CUTOFF,
+        "Secretary",
+        "Invented action",
+        "minutes/p3",
+        imis_id="00999",
+        effective_date=date(2027, 3, 31),
+        member_type="ACT",
+    )
+    conflicting_action = BoardAction(
+        "approval", proposed.member_ref, ActionKind.NEW_MEMBER_APPROVAL,
+        (proposed, approved, conflicting),
+    )
+    conflicting_actions = BoardPendingActions((conflicting_action,), ())
+    result = build_m2_m3_new_members(
+        classify(actions=conflicting_actions.actions), iqa, conflicting_actions
+    )
+    assert result.m2[0].imis_id == ""
+    assert result.m2[0].company == ""
+    assert any(f.code == "conflicting_board_imis_ids" for f in result.findings)

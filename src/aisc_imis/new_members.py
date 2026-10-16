@@ -184,13 +184,51 @@ def build_m2_m3_new_members(
                 )
             )
         seen.add(key)
-        matches = by_id.get(movement.subject_key, [])
+        imis_id = movement.subject_key
+        if movement.action_id:
+            action = next(
+                (
+                    item
+                    for item in board_actions.actions
+                    if item.action_id == movement.action_id
+                ),
+                None,
+            )
+            if action:
+                visible_action = tuple(
+                    revision
+                    for revision in action.revisions
+                    if revision.status_date <= movements.report_cutoff
+                )
+                action_ids = {
+                    revision.imis_id
+                    for revision in visible_action
+                    if revision.imis_id
+                }
+                if len(action_ids) == 1:
+                    imis_id = next(iter(action_ids))
+                elif len(action_ids) > 1:
+                    imis_id = ""
+                    findings.append(
+                        NewMemberFinding(
+                            "conflicting_board_imis_ids",
+                            movement.subject_key,
+                            "Visible revisions of this Board action contain different "
+                            f"iMIS IDs: {', '.join(sorted(action_ids))}.",
+                            tuple(
+                                f"{action.action_id}:{revision.revision_id}"
+                                for revision in visible_action
+                                if revision.imis_id
+                            ),
+                        )
+                    )
+        matches = by_id.get(imis_id, []) if imis_id else []
         refs = tuple(_iqa_ref(row) for row in matches)
         unique = {
             tuple(getattr(row, field.name) for field in fields(NewMemberIqaRow)[:9])
             for row in matches
         }
-        if not matches:
+        if not matches and imis_id:
             findings.append(
                 NewMemberFinding(
                     "missing_iqa_match",
@@ -238,8 +276,12 @@ def build_m2_m3_new_members(
                         )
                     )
 
-        board_matches = _matching_board_actions(
-            movement.subject_key, board_actions, movements.report_cutoff
+        board_matches = (
+            [(action.action_id, visible_action)]
+            if movement.action_id and action and not imis_id
+            else _matching_board_actions(
+                imis_id, board_actions, movements.report_cutoff
+            )
         )
         if len(board_matches) > 1:
             findings.append(
@@ -279,7 +321,7 @@ def build_m2_m3_new_members(
         output[measure].append(
             NewMemberRow(
                 measure=measure,
-                imis_id=movement.subject_key,
+                imis_id=imis_id,
                 member_type=movement.member_type,
                 operational_status="joined" if movement.evidence else "pending-iMIS",
                 board_action_status=board_status,
