@@ -23,6 +23,10 @@ without Member Type leaves the last supported type in place. A newer snapshot
 with a blank field also leaves that field's earlier value in place. Events do
 not record Status, so the latest supported snapshot Status remains the
 comparison baseline.
+For countability, a Status-only snapshot leaves the last reviewed event or
+rule-assessable snapshot in place. A newer snapshot containing some countability
+fields but lacking a supported rule-based state makes countability unknown and
+produces an `unassessable_countability_snapshot` finding.
 Status is compared as an observed field but does not decide membership under
 the current rules. Countability is compared only when both the expected and
 observed values can be evaluated with an applicable rule. Dates before

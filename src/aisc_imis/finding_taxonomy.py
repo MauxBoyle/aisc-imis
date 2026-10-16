@@ -77,6 +77,7 @@ _BALANCE = FindingRule(
 FINDING_RULES: dict[str, FindingRule] = {
     "missing_lifecycle_date": _GAP,
     "unknown_starting_state": _GAP,
+    "unassessable_countability_snapshot": _GAP,
     "missing_member_type": _GAP,
     "missing_is_company": _GAP,
     "missing_is_member": _GAP,

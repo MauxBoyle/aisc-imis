@@ -20,6 +20,8 @@ disagree. These request review; neither proves that a row is wrong or that an
 event actually occurred. `unknown_starting_state` and `missing_lifecycle_date`
 describe comparisons that cannot be assessed. `snapshot_state_conflict` cites
 all contradictory rows observed on the same date.
+`unassessable_countability_snapshot` cites a newer snapshot when its
+countability fields cannot establish a rule-based state.
 
 Every supported code has an explicit rule in `FINDING_RULES`. An unknown code
 raises `ValueError` so a new producer cannot be silently misclassified. The

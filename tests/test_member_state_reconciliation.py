@@ -168,6 +168,67 @@ def test_countability_difference_after_reviewed_event():
     }
 
 
+def test_status_only_snapshot_preserves_reviewed_countability_transition():
+    partial = replace(
+        obs("status_only", date(2026, 10, 19), status="S"),
+        member_type=None,
+        is_company=None,
+        is_member=None,
+    )
+    result = run(
+        (obs("opening", D1), partial),
+        (obs("target", D2, status="S"),),
+        (event("resigned", date(2026, 10, 18)),),
+    )
+    comparison = result.comparisons[-1]
+    assert comparison.outcome == "discrepancy"
+    assert comparison.expected_countability == "not_countable"
+    finding = next(
+        item for item in result.findings if item.code == "countability_difference"
+    )
+    assert {source.row_reference for source in finding.sources} == {
+        "resigned",
+        "target",
+    }
+
+
+def test_partial_countability_snapshot_reports_unknown_baseline():
+    partial = replace(
+        obs("partial", date(2026, 10, 19), member_type="FACT"),
+        is_company=None,
+        is_member=None,
+    )
+    result = run(
+        (obs("opening", D1), partial),
+        (obs("target", D2, member_type="FACT"),),
+        (event("resigned", date(2026, 10, 18)),),
+    )
+    comparison = result.comparisons[-1]
+    assert comparison.expected_countability is None
+    finding = next(
+        item for item in result.findings
+        if item.code == "unassessable_countability_snapshot"
+    )
+    assert {source.row_reference for source in finding.sources} == {
+        "partial",
+        "target",
+    }
+
+
+def test_complete_snapshot_supersedes_earlier_countability_event():
+    result = run(
+        (obs("opening", D1), obs("new_state", date(2026, 10, 19))),
+        (obs("target", D2),),
+        (event("resigned", date(2026, 10, 18)),),
+    )
+    comparison = result.comparisons[-1]
+    assert comparison.expected_countability == "countable"
+    assert not [
+        finding for finding in result.findings
+        if finding.scope.startswith(D2.isoformat())
+    ]
+
+
 def test_unresolved_intervening_event_prevents_confident_comparison():
     candidate = replace(
         event("uncertain", date(2026, 10, 18), member_type="FACT"),

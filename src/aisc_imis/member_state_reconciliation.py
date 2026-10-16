@@ -136,6 +136,7 @@ def reconcile_member_states(
         defaultdict(list)
     )
     snapshot_days: dict[str, set[date]] = defaultdict(set)
+    count_snapshot_days: dict[str, set[date]] = defaultdict(set)
     field_days: dict[tuple[str, str], set[date]] = defaultdict(set)
     events_by_subject: dict[str, list[tuple[date, MemberLedgerEntry]]] = (
         defaultdict(list)
@@ -158,12 +159,17 @@ def reconcile_member_states(
                 if separator:
                     field_snapshots[record.subject_key, field, day].append(entry)
                     field_days[record.subject_key, field].add(day)
+                    if field in {"member_type", "is_company", "is_member", "category"}:
+                        count_snapshot_days[record.subject_key].add(day)
         elif isinstance(record, CandidateLifecycleEvent):
             event_date = _day(record.effective_date)
             if event_date is not None:
                 events_by_subject[record.subject_key].append((event_date, entry))
     ordered_snapshot_days = {
         subject: tuple(sorted(days)) for subject, days in snapshot_days.items()
+    }
+    ordered_count_days = {
+        subject: tuple(sorted(days)) for subject, days in count_snapshot_days.items()
     }
     ordered_field_days = {
         key: tuple(sorted(days)) for key, days in field_days.items()
@@ -247,6 +253,13 @@ def reconcile_member_states(
             tuple(snapshots.get((item.subject_key, latest_day), ()))
             if latest_day else ()
         )
+        count_day = _latest_before(
+            ordered_count_days.get(item.subject_key, ()), when
+        )
+        count_prior = (
+            tuple(snapshots.get((item.subject_key, count_day), ()))
+            if count_day else ()
+        )
         type_day = _latest_before(
             ordered_field_days.get((item.subject_key, "member_type"), ()), when
         )
@@ -261,8 +274,8 @@ def reconcile_member_states(
             tuple(field_snapshots.get((item.subject_key, "status", status_day), ()))
             if status_day else ()
         )
-        # Count events start after the latest snapshot; type events start after
-        # the latest snapshot that actually supplies Member Type.
+        # A Status-only snapshot cannot replace countability evidence.
+        # Count events start after the latest snapshot with a count input.
         subject_events = ordered_events.get(item.subject_key, ())
         subject_event_days = event_days.get(item.subject_key, ())
         event_start = bisect_right(subject_event_days, type_day) if type_day else 0
@@ -284,10 +297,10 @@ def reconcile_member_states(
             entry
             for entry in applicable_events
             if (
-                latest_day is None or _day(entry.record.effective_date) > latest_day
-            ) or (
                 entry.record.member_type
                 and (type_day is None or _day(entry.record.effective_date) > type_day)
+            ) or (
+                count_day is None or _day(entry.record.effective_date) > count_day
             )
         )
         unresolved = tuple(
@@ -302,7 +315,7 @@ def reconcile_member_states(
         )
         count_events = tuple(
             entry for entry in events
-            if latest_day is None or _day(entry.record.effective_date) > latest_day
+            if count_day is None or _day(entry.record.effective_date) > count_day
         )
         event_day = max(
             (_day(entry.record.effective_date) for entry in count_events), default=None
@@ -314,7 +327,7 @@ def reconcile_member_states(
         )
         expected_type = _single(_values(type_support)["member_type"])
         expected_status = _single(_values(status_support)["status"])
-        count_support = prior
+        count_support = count_prior
         # Only an event with an explicit Member Type can update that field.
         # Later events without one leave the last supported type in place.
         typed_events = tuple(
@@ -350,10 +363,26 @@ def reconcile_member_states(
                     expected_count = Countability.COUNTABLE
                 elif states in ({"former_member"}, {"potential_member"}):
                     expected_count = Countability.NOT_COUNTABLE
-            elif prior and latest_day is not None:
-                expected_count = _count_from_prior(prior, when, rules)
+            elif count_prior:
+                expected_count = _count_from_prior(count_prior, when, rules)
 
         scope = f"{when.isoformat()}:{item.source_reference.source_name}:{item.source_reference.row_reference}"
+        if (
+            count_prior
+            and not latest_events
+            and not unresolved
+            and expected_count is None
+            and observed_count is not None
+        ):
+            findings.append(
+                build_finding(
+                    "unassessable_countability_snapshot",
+                    item.subject_key,
+                    f"{scope}:countability",
+                    supporting_evidence=count_prior,
+                    contradicting_evidence=target_entries,
+                )
+            )
         if unresolved:
             findings.append(
                 build_finding(
