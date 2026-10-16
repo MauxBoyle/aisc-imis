@@ -81,3 +81,4 @@ dmypy.json
 # Company data
 data/raw/
 data/processed/
+reports/

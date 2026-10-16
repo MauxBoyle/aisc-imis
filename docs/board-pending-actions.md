@@ -32,13 +32,15 @@ revision to change a status or amend its details; keep earlier revisions intact.
 | `imis_id` | No | Separate iMIS member ID, if known. |
 | `effective_date` | No | Intended effective date, separate from `status_date`. |
 | `imis_record_ref` | For `recorded-in-iMIS` | Reference to the iMIS record that now contains the action. |
+| `member_type` | No; new-member approval only | Member Type approved by the Board, used for Board-adjusted counts and M2/M3 classification. Put it on the approved revision. |
 | `desired_countable` | For a correction, one or more desired fields | Boolean desired member countability. |
 | `desired_category` | For a correction, one or more desired fields | Desired Category string. |
 | `desired_member_type` | For a correction, one or more desired fields | Desired Member Type string. |
 
 A correction needs at least one desired field. Non-correction actions cannot use
-desired fields. Optional fields should be omitted when unknown, rather than set
-to `null`. Each later revision must keep the action's `member_ref` and
+desired fields. Only new-member approvals can use `member_type`. Optional fields
+should be omitted when unknown, rather than set to `null`. Each later revision
+must keep the action's `member_ref` and
 `action_kind`, point to its immediate predecessor, and have a `status_date` no
 earlier than that predecessor. Each action must have one initial revision; a
 revision cannot branch from an older revision. The loader rejects unknown fields,

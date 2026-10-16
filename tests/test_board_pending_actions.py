@@ -138,6 +138,7 @@ def test_revision_chain_retains_each_status_and_source(tmp_path):
         ({"source_document_ref": ""}, "source_document_ref"),
         ({"status": "recorded-in-iMIS"}, "imis_record_ref"),
         ({"desired_countable": True}, "desired_countable"),
+        ({"member_type": ""}, "member_type"),
         ({"unexpected": "value"}, "unexpected"),
     ],
 )
@@ -179,6 +180,13 @@ def test_missing_required_field(tmp_path, field):
 def test_correction_requires_valid_target(tmp_path, changes, message):
     with pytest.raises(ValueError, match=message):
         _load(tmp_path, [_revision(action_kind="correction", **changes)])
+
+
+@pytest.mark.parametrize("kind", ["expulsion", "correction"])
+def test_member_type_is_only_for_new_member_approvals(tmp_path, kind):
+    extra = {"desired_countable": True} if kind == "correction" else {}
+    with pytest.raises(ValueError, match="member_type"):
+        _load(tmp_path, [_revision(action_kind=kind, member_type="ASSOC", **extra)])
 
 
 @pytest.mark.parametrize(

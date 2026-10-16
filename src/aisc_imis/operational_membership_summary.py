@@ -89,6 +89,7 @@ def summarize_operational_membership(
     category_codes: Iterable[str],
     rules: LifecycleRules,
     corrections: Iterable[EvidenceCorrection] = (),
+    knowledge_cutoff: date | None = None,
 ) -> OperationalMembershipSummary:
     """Count membership through ``as_of_date`` using an explicit prior cutoff.
 
@@ -99,13 +100,15 @@ def summarize_operational_membership(
         raise ValueError("prior_as_of_date must be before as_of_date.")
     if as_of_date == date.max:
         raise ValueError("as_of_date must be before date.max.")
+    if knowledge_cutoff is not None and knowledge_cutoff < as_of_date:
+        raise ValueError("knowledge_cutoff must be on or after as_of_date.")
     start = prior_as_of_date + timedelta(days=1)
     end = as_of_date + timedelta(days=1)
     supplied_entries = tuple(entries)
     relevant_subjects = {
         entry.record.subject_key
         for entry in supplied_entries
-        if _is_relevant_boundary_evidence(entry, end)
+        if _is_relevant_boundary_evidence(entry, end, knowledge_cutoff)
     }
     selected_entries = tuple(
         entry
@@ -115,10 +118,11 @@ def summarize_operational_membership(
     selected_categories = tuple(category_codes)
     selected_corrections = tuple(corrections)
     balance = reconcile_membership_balance(
-        selected_entries, start, end, selected_categories, rules, selected_corrections
+        selected_entries, start, end, selected_categories, rules, selected_corrections,
+        knowledge_cutoff=knowledge_cutoff,
     )
     movement = analyze_period_membership_movements(
-        selected_entries, start, end, rules, selected_corrections
+        selected_entries, start, end, rules, selected_corrections, knowledge_cutoff
     )
     unknown: list[str] = []
     missing_category: list[str] = []
@@ -213,7 +217,7 @@ def summarize_operational_membership(
     )
 
 
-def _is_relevant_boundary_evidence(entry: MemberLedgerEntry, end: date) -> bool:
+def _is_relevant_boundary_evidence(entry: MemberLedgerEntry, end: date, knowledge_cutoff: date | None = None) -> bool:
     """A member enters the population once dated lifecycle evidence can apply."""
     record = entry.record
     if not isinstance(record, (CandidateLifecycleEvent, SnapshotStateObservation)):
@@ -224,6 +228,10 @@ def _is_relevant_boundary_evidence(entry: MemberLedgerEntry, end: date) -> bool:
     when = effective.date() if isinstance(effective, datetime) else effective
     if when is None or when >= end:
         return False
+    if knowledge_cutoff is not None:
+        known_on = record.recorded_date or record.observed_date
+        known_day = known_on.date() if isinstance(known_on, datetime) else known_on
+        return known_day is not None and known_day <= knowledge_cutoff
     return any(
         (value.date() if isinstance(value, datetime) else value) < end
         for value in (record.recorded_date, record.observed_date)

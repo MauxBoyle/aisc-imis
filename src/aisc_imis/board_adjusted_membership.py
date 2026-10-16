@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 
 from aisc_imis.board_pending_actions import (
     ActionKind,
@@ -75,11 +76,13 @@ class BoardAdjustedMembershipView:
     adjusted: BoardCounts
     decisions: tuple[BoardMemberDecision, ...]
     findings: tuple[BoardFinding, ...]
+    board_cutoff: date
 
 
 def build_board_adjusted_membership(
     operational: OperationalMembershipSummary,
     pending: BoardPendingActions,
+    knowledge_cutoff: date | None = None,
 ) -> BoardAdjustedMembershipView:
     """Apply eligible Board actions without modifying the operational summary.
 
@@ -87,7 +90,9 @@ def build_board_adjusted_membership(
     approved revision needs both its status date and effective date (if given)
     within the cutoff. Unknown states and competing actions are skipped.
     """
-    cutoff = operational.as_of_date
+    cutoff = knowledge_cutoff or operational.as_of_date
+    if cutoff < operational.as_of_date:
+        raise ValueError("knowledge_cutoff must be on or after the view date.")
     confirmed = {item.subject_key: item for item in operational.overall.contributors}
     movements = {item.subject_key: item for item in operational.movement.contributors}
     states = {
@@ -133,7 +138,7 @@ def build_board_adjusted_membership(
             in {ActionStatus.APPROVED, ActionStatus.RECORDED_IN_IMIS}
             and approval.status is ActionStatus.APPROVED
             and approval.status_date <= cutoff
-            and (approval.effective_date or approval.status_date) <= cutoff
+            and (approval.effective_date or approval.status_date) <= operational.as_of_date
             and not (
                 revision.status is ActionStatus.RECORDED_IN_IMIS
                 and _operational_confirms(
@@ -164,7 +169,7 @@ def build_board_adjusted_membership(
         if (
             not visible
             or approval.status_date > cutoff
-            or (approval.effective_date or approval.status_date) > cutoff
+            or (approval.effective_date or approval.status_date) > operational.as_of_date
         ):
             disposition = "after-cutoff"
         elif (
@@ -190,7 +195,8 @@ def build_board_adjusted_membership(
                 states[key] = BoardMemberState(
                     key,
                     movement.closing_category if movement else None,
-                    movement.closing_member_type if movement else None,
+                    approval.member_type
+                    or (movement.closing_member_type if movement else None),
                     action_id,
                     approval.rationale,
                     approval.source_document_ref,
@@ -362,7 +368,7 @@ def build_board_adjusted_membership(
         },
     )
     return BoardAdjustedMembershipView(
-        operational, adjustments, adjusted, tuple(decisions), tuple(findings)
+        operational, adjustments, adjusted, tuple(decisions), tuple(findings), cutoff
     )
 
 
