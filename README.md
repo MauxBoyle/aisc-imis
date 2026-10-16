@@ -216,6 +216,15 @@ reference. The loader reports possible duplicate actions for review, without
 merging them or changing iMIS evidence. The documentation lists every JSON field,
 the five statuses, and synthetic examples.
 
+The [Board-adjusted membership view](docs/board-adjusted-membership.md) applies
+approved, dated actions to a separate read-only count. Call
+`build_board_adjusted_membership(operational, pending)` with an operational
+summary and validated pending actions. It returns operational counts, signed
+adjustments, adjusted counts, member decisions, and findings. Unknown states,
+duplicates, and conflicting actions are skipped; a `recorded-in-iMIS` action
+stops its overlay only after the operational state confirms it. The guide
+includes the cutoff rules and an invented member trace.
+
 For an ordered view of evidence for already-confirmed member keys, use the
 non-CLI member ledger service. This synthetic example preserves every record
 and writes only to a caller-chosen local path:
