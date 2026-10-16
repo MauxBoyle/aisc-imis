@@ -403,6 +403,12 @@ explicit, immutable audit instructions: they replace evidence only for a given
 analysis and never count as lifecycle actions. The API and its examples use
 synthetic evidence; private member rows stay out of documentation.
 
+The [period membership balance API](docs/period-membership-balance.md) compares
+opening count plus confirmed actions, Category transfers, and explicit reviewed
+adjustments with closing count. It returns `closing - expected closing` and
+member-level evidence for every term. Unknown boundary states leave the balance
+incomplete rather than creating a guessed difference.
+
 ```bash
 uv run python scripts/serve_docs.py
 uv run mkdocs build
