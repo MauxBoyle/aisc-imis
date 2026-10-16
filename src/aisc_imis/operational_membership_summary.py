@@ -16,6 +16,7 @@ from aisc_imis.lifecycle_rules import Countability, LifecycleRules
 from aisc_imis.member_ledger import MemberLedgerEntry
 from aisc_imis.period_membership_balance import (
     PeriodMembershipBalance,
+    has_unresolved_period_evidence,
     reconcile_membership_balance,
 )
 
@@ -123,15 +124,7 @@ def summarize_operational_membership(
     confirmed: list[SummaryMemberEvidence] = []
     findings = list(balance.findings)
     for member in movement.contributors:
-        unresolved = any(
-            finding.code
-            in {
-                "unresolved_lifecycle_evidence",
-                "invalid_snapshot_field",
-                "same_day_state_contradiction",
-            }
-            for finding in member.findings
-        )
+        unresolved = has_unresolved_period_evidence(member, start)
         if (
             member.opening_countability is Countability.UNKNOWN
             or member.closing_countability is Countability.UNKNOWN

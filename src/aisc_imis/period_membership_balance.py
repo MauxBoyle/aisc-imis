@@ -9,6 +9,7 @@ from datetime import date, datetime
 from aisc_imis.evidence_ledger import CandidateLifecycleEvent
 from aisc_imis.lifecycle_period_movements import (
     EvidenceCorrection,
+    MemberMovementContributor,
     MovementFinding,
     analyze_period_membership_movements,
 )
@@ -111,19 +112,7 @@ def reconcile_membership_balance(
 
     for member in movement.contributors:
         unknown_count = Countability.UNKNOWN in {member.opening_countability, member.closing_countability}
-        unresolved_state = any(
-            finding.code in {"unresolved_lifecycle_evidence", "invalid_snapshot_field", "same_day_state_contradiction"}
-            and any(
-                (not isinstance(entry.record, CandidateLifecycleEvent) or entry.record.event_name != "transferred")
-                and (
-                    member.opening_countability is Countability.UNKNOWN
-                    or _evidence_day(entry) is None
-                    or _evidence_day(entry) >= start_date
-                )
-                for entry in finding.supporting_evidence
-            )
-            for finding in member.findings
-        )
+        unresolved_state = has_unresolved_period_evidence(member, start_date)
         if unknown_count or unresolved_state:
             overall_complete = False
             category_complete = dict.fromkeys(selected, False)
@@ -177,6 +166,23 @@ def reconcile_membership_balance(
     overall = make_line(None, overall_complete)
     category_lines = {category: make_line(category, category_complete[category]) for category in selected}
     return PeriodMembershipBalance(start_date, end_date, overall, category_lines, movement.applied_corrections, tuple(findings))
+
+
+def has_unresolved_period_evidence(member: MemberMovementContributor, start_date: date) -> bool:
+    """Check unresolved evidence that can affect this period's member state."""
+    return any(
+        finding.code in {"unresolved_lifecycle_evidence", "invalid_snapshot_field", "same_day_state_contradiction"}
+        and any(
+            (not isinstance(entry.record, CandidateLifecycleEvent) or entry.record.event_name != "transferred")
+            and (
+                member.opening_countability is Countability.UNKNOWN
+                or _evidence_day(entry) is None
+                or _evidence_day(entry) >= start_date
+            )
+            for entry in finding.supporting_evidence
+        )
+        for finding in member.findings
+    )
 
 
 def _evidence_day(entry: MemberLedgerEntry) -> date | None:
