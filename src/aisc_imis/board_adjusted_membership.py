@@ -76,6 +76,7 @@ class BoardAdjustedMembershipView:
     adjusted: BoardCounts
     decisions: tuple[BoardMemberDecision, ...]
     findings: tuple[BoardFinding, ...]
+    board_cutoff: date
 
 
 def build_board_adjusted_membership(
@@ -367,7 +368,7 @@ def build_board_adjusted_membership(
         },
     )
     return BoardAdjustedMembershipView(
-        operational, adjustments, adjusted, tuple(decisions), tuple(findings)
+        operational, adjustments, adjusted, tuple(decisions), tuple(findings), cutoff
     )
 
 

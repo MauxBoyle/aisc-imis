@@ -236,6 +236,20 @@ and findings. A join effective March 31 but recorded April 10 counts in the
 first quarter when the cutoff is April 15. An unknown state leaves the relevant
 total as `None`.
 
+The [M1 membership numbers guide](docs/m1-membership-numbers.md) describes the
+aggregate overall and source Category rows. `build_m1_membership_numbers()`
+combines a period balance with opening and closing Board views. Each row shows
+operational opening, movements, reviewed adjustments, expected and actual
+closing, and the difference; it also shows the opening and closing Board
+adjustments and Board adjusted counts. The period is `[start_date, end_date)`,
+the operational as-of date is the preceding day, and the Board cutoff is a
+separate inclusive date. Unknown totals stay `None`; unresolved differences
+remain visible and never become automatic adjustments. Use `write_m1_csv()`
+after reviewing the structured result to write an aggregate CSV under the
+ignored `reports/` directory. Missing values are blank and each row has a
+`status` such as `reconciled`, `unresolved_unknown`, or
+`unresolved_difference`.
+
 For an ordered view of evidence for already-confirmed member keys, use the
 non-CLI member ledger service. This synthetic example preserves every record
 and writes only to a caller-chosen local path:
