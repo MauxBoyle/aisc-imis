@@ -280,7 +280,6 @@ def reconcile_member_states(
                     contradicting_evidence=target,
                 )
             )
-                )
         if not has_history:
             incomplete = True
             findings.append(

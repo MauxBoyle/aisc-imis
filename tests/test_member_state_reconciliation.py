@@ -238,8 +238,33 @@ def test_late_recorded_snapshot_does_not_change_earlier_comparison():
     assert comparison.outcome == "match"
 
 
+def test_snapshot_needs_both_observed_and_recorded_dates_to_be_available():
+    late = SnapshotStateObservation(
+        "synthetic-1",
+        "status=S",
+        SourceReference("late.csv", "one"),
+        observed_date=D1,
+        recorded_date=date(2026, 10, 21),
+    )
+    result = run((obs("opening", D1),), (obs("target", D2),), (late,))
+    comparison = result.comparisons[-1]
+    assert comparison.expected_status == "A"
+    assert comparison.outcome == "match"
+
+
 def test_late_recorded_event_does_not_change_earlier_comparison():
     late = replace(event("late", date(2026, 10, 18)), recorded_date=date(2026, 10, 21))
+    result = run((obs("opening", D1),), (obs("target", D2),), (late,))
+    assert result.comparisons[-1].expected_countability == "countable"
+    assert result.comparisons[-1].outcome == "match"
+
+
+def test_event_needs_both_observed_and_recorded_dates_to_be_available():
+    late = replace(
+        event("late", date(2026, 10, 18)),
+        observed_date=D1,
+        recorded_date=date(2026, 10, 21),
+    )
     result = run((obs("opening", D1),), (obs("target", D2),), (late,))
     assert result.comparisons[-1].expected_countability == "countable"
     assert result.comparisons[-1].outcome == "match"

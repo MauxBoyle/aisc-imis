@@ -75,7 +75,7 @@ class MemberStateHistory:
                 for value in (day(record.recorded_date), day(record.observed_date))
                 if value is not None
             )
-            known = min(known_dates) if known_dates else None
+            known = max(known_dates) if known_dates else None
             if applies is None or known is None:
                 continue
             unresolved = record.interpretation_status in {"ambiguous", "unresolved"}
