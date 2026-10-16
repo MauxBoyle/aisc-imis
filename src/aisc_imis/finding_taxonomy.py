@@ -79,6 +79,7 @@ FINDING_RULES: dict[str, FindingRule] = {
     "unknown_starting_state": _GAP,
     "unassessable_countability_snapshot": _GAP,
     "unassessable_state_field": _GAP,
+    "missing_observed_state_field": _GAP,
     "missing_member_type": _GAP,
     "missing_is_company": _GAP,
     "missing_is_member": _GAP,

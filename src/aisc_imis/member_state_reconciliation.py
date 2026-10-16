@@ -202,6 +202,15 @@ def reconcile_member_states(
         for field in ("member_type", "status"):
             observed = getattr(item, field)
             if observed is None:
+                incomplete = True
+                findings.append(
+                    build_finding(
+                        "missing_observed_state_field",
+                        item.subject_key,
+                        f"{scope}:{field}",
+                        supporting_evidence=target,
+                    )
+                )
                 continue
             expected = state.field(field)
             support.extend(expected.evidence)
@@ -228,33 +237,49 @@ def reconcile_member_states(
                         contradicting_evidence=target,
                     )
                 )
-        if observed_count is not None:
-            support.extend(state.countability.evidence)
-            if expected_count is None:
-                incomplete = True
-                if state.countability.evidence or has_history:
-                    findings.append(
-                        build_finding(
-                            state.countability.reason
-                            or "unassessable_countability_snapshot",
-                            item.subject_key,
-                            f"{scope}:countability",
-                            supporting_evidence=state.countability.evidence or target,
-                            contradicting_evidence=(
-                                target if state.countability.evidence else ()
-                            ),
-                        )
-                    )
-            elif expected_count != observed_count:
-                differences = True
+        support.extend(state.countability.evidence)
+        if expected_count is None:
+            incomplete = True
+            if state.countability.evidence or has_history:
                 findings.append(
                     build_finding(
-                        "countability_difference",
+                        state.countability.reason
+                        or "unassessable_countability_snapshot",
                         item.subject_key,
-                        f"{scope}:countability",
-                        supporting_evidence=state.countability.evidence,
-                        contradicting_evidence=target,
+                        f"{scope}:countability:expected",
+                        supporting_evidence=state.countability.evidence or target,
+                        contradicting_evidence=(
+                            target if state.countability.evidence else ()
+                        ),
                     )
+                )
+        if observed_count is None:
+            incomplete = True
+            findings.append(
+                build_finding(
+                    observed_decision.findings[0].code
+                    if observed_decision.findings
+                    else "unassessable_countability_snapshot",
+                    item.subject_key,
+                    f"{scope}:countability:observed",
+                    supporting_evidence=target,
+                )
+            )
+        if (
+            expected_count is not None
+            and observed_count is not None
+            and expected_count != observed_count
+        ):
+            differences = True
+            findings.append(
+                build_finding(
+                    "countability_difference",
+                    item.subject_key,
+                    f"{scope}:countability",
+                    supporting_evidence=state.countability.evidence,
+                    contradicting_evidence=target,
+                )
+            )
                 )
         if not has_history:
             incomplete = True
@@ -266,38 +291,12 @@ def reconcile_member_states(
                     supporting_evidence=target,
                 )
             )
-        # An unresolved event affects countability even when the observed row
-        # lacks the fields needed to evaluate its own countability.
-        if state.countability.reason in {
-            "unresolved_lifecycle_evidence",
-            "same_day_state_contradiction",
-        }:
-            incomplete = True
-            if observed_count is None:
-                findings.append(
-                    build_finding(
-                        state.countability.reason,
-                        item.subject_key,
-                        scope,
-                        supporting_evidence=state.countability.evidence,
-                        contradicting_evidence=target,
-                    )
-                )
-        assessable = any(
-            (
-                state.field("member_type").value is not None
-                and item.member_type is not None,
-                state.field("status").value is not None and item.status is not None,
-                expected_count is not None and observed_count is not None,
-            )
-        )
-        outcome = (
-            "discrepancy"
-            if differences
-            else "unassessable"
-            if incomplete or not assessable
-            else "match"
-        )
+        if incomplete:
+            outcome = "unassessable"
+        elif differences:
+            outcome = "discrepancy"
+        else:
+            outcome = "match"
         comparisons.append(
             MembershipComparison(
                 item,

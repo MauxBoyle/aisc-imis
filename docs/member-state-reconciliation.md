@@ -28,14 +28,19 @@ rule-assessable snapshot in place. A newer snapshot containing some countability
 fields but lacking a supported rule-based state makes countability unknown and
 produces an `unassessable_countability_snapshot` finding.
 Status is compared as an observed field but does not decide membership under
-the current rules. Countability is compared only when both the expected and
-observed values can be evaluated with an applicable rule. Dates before
-2026-10-15 have no rule-based countability conclusion.
+the current rules. A `match` requires known expected and observed Member Type,
+Status, and countability. A missing observed Member Type or Status gets a
+`missing_observed_state_field` finding. Unknown observed countability gets the
+rule evaluator's finding, such as `missing_is_member` or
+`no_applicable_rule_version`. Unknown expected countability also gets a
+finding when earlier evidence exists. Dates before 2026-10-15 have no
+rule-based countability conclusion and are unassessable.
 
 Each immutable comparison returns `match`, `discrepancy`, or `unassessable`.
-`unassessable` means independent evidence, a usable date, or a reviewed rule
-is missing; it is not a verdict against the source row. A discrepancy is a
-review cue, not a correction. Findings have stable IDs and cite the target
+`unassessable` means at least one required comparison cannot be concluded;
+it is not a verdict against the source row. A known difference still gets a
+review finding, even if another field makes the overall comparison
+unassessable. Findings have stable IDs and cite the target
 row plus the earlier snapshot or event source rows that support or contradict
 it. A first observed row receives an `unknown_starting_state` finding. Same-day
 contradictory rows receive `snapshot_state_conflict`, even when there is no
