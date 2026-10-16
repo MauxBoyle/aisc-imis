@@ -246,6 +246,15 @@ findings, and both row counts reconcile to classified joins. The Q3 2026 IQA
 sample has 19 `ACT` and 22 `ASSOC` source rows; these are not yet verified
 movement totals. Write operational CSVs under ignored `reports/`.
 
+The [M4 resignations and reinstatements guide](docs/m4-resignations-reinstatements.md)
+shows how to select counted M4 actions from `QuarterlyMovementResult` and write
+two CSV lists under ignored `reports/`. Effective dates place actions in the
+quarter; recorded dates and the report cutoff control which evidence is known.
+Rows keep Category and Member Type at the action, resulting operational status,
+and ledger source references. The builder checks list counts against classified
+M4 counts and the balance terms, and returns unresolved evidence or mismatches
+as review findings.
+
 The [M1 membership numbers guide](docs/m1-membership-numbers.md) describes the
 aggregate overall and source Category rows. `build_m1_membership_numbers()`
 combines a period balance with opening and closing Board views. Each row shows
