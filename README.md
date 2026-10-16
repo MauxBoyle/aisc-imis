@@ -207,6 +207,15 @@ expired or unmatched entries for another review. It leaves findings and member
 state unchanged. Keep member keys and private notes in the ignored local file;
 the tracked template stays empty.
 
+The [pending Board actions input](docs/board-pending-actions.md) validates
+proposed approvals, expulsions, and member-level corrections with an append-only
+status history. Copy the empty [versioned template](config/board_pending_actions.json)
+to `data/processed/board_pending_actions.json` before entering private actions.
+Each revision keeps its own date, recorder, rationale, and source document
+reference. The loader reports possible duplicate actions for review, without
+merging them or changing iMIS evidence. The documentation lists every JSON field,
+the five statuses, and synthetic examples.
+
 For an ordered view of evidence for already-confirmed member keys, use the
 non-CLI member ledger service. This synthetic example preserves every record
 and writes only to a caller-chosen local path:
