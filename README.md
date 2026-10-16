@@ -225,6 +225,17 @@ duplicates, and conflicting actions are skipped; a `recorded-in-iMIS` action
 stops its overlay only after the operational state confirms it. The guide
 includes the cutoff rules and an invented member trace.
 
+The [quarterly Board movement classifier](docs/quarterly-board-movements.md)
+classifies M2–M5 using effective dates for period placement and a separate,
+inclusive report cutoff for what was known. Call `classify_quarterly_movements`
+with ledger entries, `[start_date, end_date)`, cutoff, lifecycle rules, validated
+Board actions, and Category codes. Its counted rows include member evidence or a
+Board document reference; visible noncounted Board actions include reasons.
+It returns operational and Board-adjusted changes, their reconciliation views,
+and findings. A join effective March 31 but recorded April 10 counts in the
+first quarter when the cutoff is April 15. An unknown state leaves the relevant
+total as `None`.
+
 For an ordered view of evidence for already-confirmed member keys, use the
 non-CLI member ledger service. This synthetic example preserves every record
 and writes only to a caller-chosen local path:

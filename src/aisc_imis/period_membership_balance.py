@@ -86,6 +86,7 @@ def reconcile_membership_balance(
     rules: LifecycleRules,
     corrections: Iterable[EvidenceCorrection] = (),
     adjustments: Iterable[ReviewedBalanceAdjustment] = (),
+    knowledge_cutoff: date | None = None,
 ) -> PeriodMembershipBalance:
     """Compare closing count with opening plus confirmed movements and reviews.
 
@@ -96,7 +97,7 @@ def reconcile_membership_balance(
     selected = tuple(categories)
     if len(selected) != len(set(selected)) or any(not code.strip() for code in selected):
         raise ValueError("Category codes must be nonblank and unique.")
-    movement = analyze_period_membership_movements(entries, start_date, end_date, rules, corrections)
+    movement = analyze_period_membership_movements(entries, start_date, end_date, rules, corrections, knowledge_cutoff)
     reviewed = tuple(adjustments)
     findings = list(movement.findings)
     terms: dict[str | None, dict[str, list[BalanceTermEvidence]]] = {

@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from aisc_imis.evidence_ledger import (
     CandidateLifecycleEvent,
@@ -135,6 +135,7 @@ def analyze_period_membership_movements(
     end_date: date,
     rules: LifecycleRules,
     corrections: Iterable[EvidenceCorrection] = (),
+    knowledge_cutoff: date | None = None,
 ) -> PeriodMembershipMovementAnalysis:
     """Analyze confirmed evidence over ``[start_date, end_date)``.
 
@@ -145,8 +146,26 @@ def analyze_period_membership_movements(
     """
     if end_date <= start_date:
         raise ValueError("end_date must be after start_date.")
+    if knowledge_cutoff is not None and knowledge_cutoff < end_date - timedelta(days=1):
+        raise ValueError("knowledge_cutoff must cover the period's last day.")
     original = tuple(entries)
-    retained, applied, correction_findings = _apply_corrections(original, tuple(corrections))
+    replacement_records = {entry.record_id: entry.record for entry in original}
+    visible_corrections = tuple(
+        correction for correction in corrections
+        if knowledge_cutoff is None or (
+            (correction.recorded_date is None or _day(correction.recorded_date) <= knowledge_cutoff)
+            and (
+                correction.replacement_record_id not in replacement_records
+                or _known(
+                    replacement_records[correction.replacement_record_id].recorded_date,
+                    replacement_records[correction.replacement_record_id].observed_date,
+                    end_date,
+                    knowledge_cutoff,
+                )
+            )
+        )
+    )
+    retained, applied, correction_findings = _apply_corrections(original, visible_corrections)
     by_subject: dict[str, list[MemberLedgerEntry]] = defaultdict(list)
     for entry in retained:
         by_subject[entry.record.subject_key].append(entry)
@@ -158,7 +177,7 @@ def analyze_period_membership_movements(
     gross: dict[str, int] = defaultdict(int)
     net_changes: list[int] = []
     for subject_key, subject_entries in sorted(by_subject.items()):
-        contributor = _analyze_member(subject_key, tuple(subject_entries), start_date, end_date, rules)
+        contributor = _analyze_member(subject_key, tuple(subject_entries), start_date, end_date, rules, knowledge_cutoff)
         contributors.append(contributor)
         all_grouping.extend(contributor.membership_grouping_transfers)
         all_category.extend(contributor.category_transfers)
@@ -211,8 +230,8 @@ def _has_correction_cycle(start: str, links: dict[str, str]) -> bool:
     return False
 
 
-def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], start: date, end: date, rules: LifecycleRules) -> MemberMovementContributor:
-    points, findings = _points(entries, end, rules)
+def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], start: date, end: date, rules: LifecycleRules, knowledge_cutoff: date | None) -> MemberMovementContributor:
+    points, findings = _points(entries, end, rules, knowledge_cutoff)
     profile = _Profile(Countability.UNKNOWN, None, None)
     actions: list[str] = []
     dated_actions: list[DatedLifecycleAction] = []
@@ -291,7 +310,7 @@ def _day_profile(points: list[_Point]) -> _Profile | None:
     )
 
 
-def _points(entries: tuple[MemberLedgerEntry, ...], end: date, rules: LifecycleRules) -> tuple[dict[date, list[_Point]], list[MovementFinding]]:
+def _points(entries: tuple[MemberLedgerEntry, ...], end: date, rules: LifecycleRules, knowledge_cutoff: date | None) -> tuple[dict[date, list[_Point]], list[MovementFinding]]:
     output: dict[date, list[_Point]] = defaultdict(list)
     findings: list[MovementFinding] = []
     snapshot_groups: dict[tuple[object, ...], list[MemberLedgerEntry]] = defaultdict(list)
@@ -301,7 +320,7 @@ def _points(entries: tuple[MemberLedgerEntry, ...], end: date, rules: LifecycleR
             snapshot_groups[(record.source_reference, record.effective_date, record.recorded_date, record.observed_date)].append(entry)
         elif isinstance(record, CandidateLifecycleEvent):
             when = _day(record.effective_date)
-            if when is None or when >= end or not _known(record.recorded_date, record.observed_date, end):
+            if when is None or when >= end or not _known(record.recorded_date, record.observed_date, end, knowledge_cutoff):
                 continue
             if record.interpretation_status in {InterpretationStatus.AMBIGUOUS, InterpretationStatus.UNRESOLVED}:
                 findings.append(MovementFinding("unresolved_lifecycle_evidence", "Lifecycle evidence needs review.", (entry,)))
@@ -316,7 +335,7 @@ def _points(entries: tuple[MemberLedgerEntry, ...], end: date, rules: LifecycleR
         record = grouped[0].record
         assert isinstance(record, SnapshotStateObservation)
         when = _day(record.effective_date) or _day(record.observed_date)
-        if when is None or when >= end or not _known(record.recorded_date, record.observed_date, end):
+        if when is None or when >= end or not _known(record.recorded_date, record.observed_date, end, knowledge_cutoff):
             continue
         values = _snapshot_values(grouped)
         if values is None:
@@ -370,5 +389,8 @@ def _day(value: date | datetime | None) -> date | None:
     return value.date() if isinstance(value, datetime) else value
 
 
-def _known(recorded: date | datetime | None, observed: date | datetime | None, end: date) -> bool:
+def _known(recorded: date | datetime | None, observed: date | datetime | None, end: date, knowledge_cutoff: date | None = None) -> bool:
+    if knowledge_cutoff is not None:
+        known_on = _day(recorded) or _day(observed)
+        return known_on is not None and known_on <= knowledge_cutoff
     return any(day is not None and day < end for day in (_day(recorded), _day(observed)))
