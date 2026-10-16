@@ -236,6 +236,16 @@ and findings. A join effective March 31 but recorded April 10 counts in the
 first quarter when the cutoff is April 15. An unknown state leaves the relevant
 total as `None`.
 
+The [M2/M3 new members guide](docs/m2-m3-new-members.md) shows how to turn
+classified `ACT` and `ASSOC` joins into separate CSV lists. Use
+`read_new_members_iqa()` for Board display fields, then
+`build_m2_m3_new_members()` and `write_m2_m3_csv()`. Selection comes from the
+classified effective date and report cutoff; the IQA Join Date is display
+evidence. Missing or conflicting exact-ID IQA matches remain visible as
+findings, and both row counts reconcile to classified joins. The Q3 2026 IQA
+sample has 19 `ACT` and 22 `ASSOC` source rows; these are not yet verified
+movement totals. Write operational CSVs under ignored `reports/`.
+
 The [M1 membership numbers guide](docs/m1-membership-numbers.md) describes the
 aggregate overall and source Category rows. `build_m1_membership_numbers()`
 combines a period balance with opening and closing Board views. Each row shows
