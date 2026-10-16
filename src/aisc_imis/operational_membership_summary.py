@@ -10,6 +10,7 @@ from aisc_imis.evidence_ledger import CandidateLifecycleEvent, SnapshotStateObse
 from aisc_imis.lifecycle_period_movements import (
     EvidenceCorrection,
     MovementFinding,
+    PeriodMembershipMovementAnalysis,
     analyze_period_membership_movements,
 )
 from aisc_imis.lifecycle_rules import Countability, LifecycleRules
@@ -53,6 +54,7 @@ class OperationalMembershipSummary:
     missing_member_type_member_ids: tuple[str, ...]
     findings: tuple[MovementFinding, ...]
     balance: PeriodMembershipBalance
+    movement: PeriodMembershipMovementAnalysis
 
 
 def select_reporting_month_ends(
@@ -207,6 +209,7 @@ def summarize_operational_membership(
         tuple(missing_type),
         tuple(findings),
         balance,
+        movement,
     )
 
 
