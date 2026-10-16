@@ -13,6 +13,17 @@ decisions; callers create a finding alongside them.
 | Impossible transition | Error | `repeated_lifecycle_event`, `cyclic_correction` | Review event order and dates; use an audited correction if needed. |
 | Balance difference | Error | `balance_difference` | Reconcile opening count, movements, and closing count. |
 
+Member-state reconciliation also uses `possible_missing_transition` (warning)
+when an observed Member Type or Status differs from supported earlier evidence,
+and `countability_difference` (error) when two rule-based countability results
+disagree. These request review; neither proves that a row is wrong or that an
+event actually occurred. `unknown_starting_state` and `missing_lifecycle_date`
+describe comparisons that cannot be assessed. `snapshot_state_conflict` cites
+all contradictory rows observed on the same date.
+`missing_observed_state_field` cites a target row missing Member Type or Status.
+`unassessable_countability_snapshot` cites a newer snapshot when its
+countability fields cannot establish a rule-based state.
+
 Every supported code has an explicit rule in `FINDING_RULES`. An unknown code
 raises `ValueError` so a new producer cannot be silently misclassified. The
 default severity describes review priority, not the truth of a state. A caller
@@ -28,6 +39,6 @@ excluded from identity. When evidence changes, the ID changes. The two evidence
 roles and their source-row references remain visible. `order_findings()` sorts
 by member, scope, code, and ID for repeatable output.
 
-This is a reusable taxonomy for issue #26. Snapshot comparisons, reviewed
-exceptions, and balance checks in later issues will supply their own findings
-and cited evidence; this module does not infer those discrepancies itself.
+This taxonomy is shared by the issue #26 finding service and issue #27
+member-state comparisons. It classifies findings but does not infer a
+discrepancy itself.

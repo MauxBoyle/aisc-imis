@@ -175,6 +175,12 @@ observed dates separate; preserves conflicting records; and can round-trip the
 models through one typed table format for local audit exports. Any generated
 ledger exports belong in ignored `data/processed/`.
 
+The [member-state reconciliation service](docs/member-state-reconciliation.md)
+compares historical snapshots and a dated current export with independently
+supported history. It returns immutable comparison results and source-linked
+review findings. A missing baseline is `unassessable`, while a supported
+difference is a `discrepancy`; neither automatically changes a member record.
+
 For an ordered view of evidence for already-confirmed member keys, use the
 non-CLI member ledger service. This synthetic example preserves every record
 and writes only to a caller-chosen local path:
