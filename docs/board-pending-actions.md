@@ -2,10 +2,11 @@
 
 Issue #32 defines a private, reviewable input for Board actions that may not yet
 appear in iMIS. The loader validates records and reports possible duplicates. It
-does not change source evidence, member state, or a Board report. A later step
-will decide how validated actions affect a Board-adjusted view.
+does not change source evidence or member state. Pass its validated result to
+the [Board-adjusted membership view](board-adjusted-membership.md) to see
+eligible adjustments beside operational counts.
 
-Copy the empty [version 1 template](../config/board_pending_actions.json) to
+Copy the empty version 1 template, `config/board_pending_actions.json`, to
 `data/processed/board_pending_actions.json`. The `data/processed/` directory is
 ignored by Git. Keep real member references, source document references, and
 rationales there; never put them in tracked examples, tests, or documentation.

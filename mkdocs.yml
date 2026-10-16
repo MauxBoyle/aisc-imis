@@ -50,6 +50,7 @@ nav:
   - Reconciliation Finding Taxonomy: finding-taxonomy.md
   - Reviewed Exception Registry: reviewed-exception-registry.md
   - Pending Board Actions: board-pending-actions.md
+  - Board-adjusted Membership: board-adjusted-membership.md
   - Normalization Contracts: normalization-contracts.md
   - Member Identifier Map: member-identifier-map.md
   - API Reference: api.md
