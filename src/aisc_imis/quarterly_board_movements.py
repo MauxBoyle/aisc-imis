@@ -157,7 +157,7 @@ def classify_quarterly_movements(
             if action.action not in {"joined", "reinstated", "resigned", "expelled"}:
                 continue
             measure = (
-                measures.get(member.closing_member_type or "", "M2")
+                measures.get(action.member_type or "", "M2")
                 if action.action == "joined"
                 else "M5"
                 if action.action == "expelled"

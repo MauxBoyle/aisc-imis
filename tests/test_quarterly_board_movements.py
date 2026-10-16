@@ -42,7 +42,7 @@ def snapshot(key, member_type, when, recorded=None):
     )
 
 
-def event(key, name, when, recorded=None, status=None):
+def event(key, name, when, recorded=None, status=None, member_type=None):
     kwargs = {"interpretation_status": status} if status else {}
     return CandidateLifecycleEvent(
         key,
@@ -51,6 +51,7 @@ def event(key, name, when, recorded=None, status=None):
         "Invented lifecycle event",
         effective_date=when,
         recorded_date=recorded or when,
+        member_type=member_type,
         **kwargs,
     )
 
@@ -300,7 +301,7 @@ def test_evidence_correction_waits_for_its_replacement_record():
 def test_m3_mapping_and_rejected_withdrawn_reasons():
     records = (
         *snapshot("one", "FACT", date(2026, 12, 31)),
-        event("one", "joined", START),
+        event("one", "joined", START, member_type="ASSOC"),
         *snapshot("one", "ASSOC", date(2027, 1, 2)),
     )
     actions = (
@@ -336,3 +337,25 @@ def test_m3_mapping_and_rejected_withdrawn_reasons():
         ActionStatus.WITHDRAWN,
     }
     assert all(row.reason for row in result.noncounted)
+
+
+def test_join_measure_uses_member_type_at_join_before_later_transfer():
+    records = (
+        *snapshot("one", "FACT", date(2026, 12, 31)),
+        event("one", "joined", START, member_type="ACT"),
+        *snapshot("one", "ASSOC", date(2027, 2, 1)),
+    )
+    ledger = build_member_evidence_ledger(records)
+    result = classify_quarterly_movements(
+        ledger.entries,
+        START,
+        END,
+        date(2027, 4, 15),
+        RULES,
+        BoardPendingActions((), ()),
+        ("A",),
+        join_measures={"ASSOC": "M3"},
+    )
+    assert [(row.action, row.measure) for row in result.counted] == [("joined", "M2")]
+    assert result.movement.contributors[0].dated_actions[0].member_type == "ACT"
+    assert result.movement.contributors[0].closing_member_type == "ASSOC"

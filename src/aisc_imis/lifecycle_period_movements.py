@@ -77,6 +77,7 @@ class DatedLifecycleAction:
     effective_date: date
     category: str | None
     supporting_evidence: tuple[MemberLedgerEntry, ...]
+    member_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -256,7 +257,8 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
                 else:
                     actions.append(event_point.event_name)
                     action_category = next_profile.category if next_profile.countability is Countability.COUNTABLE else profile.category
-                    dated_actions.append(DatedLifecycleAction(event_point.event_name, when, action_category, tuple(point.entry for point in day)))
+                    action_member_type = next_profile.member_type if next_profile.countability is Countability.COUNTABLE else profile.member_type
+                    dated_actions.append(DatedLifecycleAction(event_point.event_name, when, action_category, tuple(point.entry for point in day), action_member_type))
             elif (
                 profile.countability is Countability.COUNTABLE
                 and next_profile.countability is Countability.NOT_COUNTABLE
@@ -264,7 +266,7 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
                 # A confirmed snapshot state change is an inferred exit, even
                 # when no separate lifecycle-event record names that exit.
                 actions.append("exited")
-                dated_actions.append(DatedLifecycleAction("exited", when, profile.category, tuple(point.entry for point in day)))
+                dated_actions.append(DatedLifecycleAction("exited", when, profile.category, tuple(point.entry for point in day), profile.member_type))
             _transfers(profile, next_profile, when, tuple(point.entry for point in day), grouping, category)
         profile = next_profile
         used.extend(item.entry for item in day)
