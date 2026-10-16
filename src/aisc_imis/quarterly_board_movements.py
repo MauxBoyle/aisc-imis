@@ -47,6 +47,7 @@ class QuarterlyMovementRow:
     action_id: str | None = None
     source_document_ref: str | None = None
     category: str | None = None
+    member_type: str | None = None
 
 
 @dataclass(frozen=True)
@@ -182,6 +183,7 @@ def classify_quarterly_movements(
                     "Confirmed operational state change",
                     action.supporting_evidence,
                     category=action.category,
+                    member_type=action.member_type,
                 )
             )
 
@@ -264,6 +266,7 @@ def classify_quarterly_movements(
                     action_id=board_action.action_id,
                     source_document_ref=revision.source_document_ref,
                     category=revision.desired_category,
+                    member_type=approved.member_type if approved else None,
                 )
             )
             continue
