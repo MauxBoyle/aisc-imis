@@ -48,6 +48,7 @@ class QuarterlyMovementRow:
     source_document_ref: str | None = None
     category: str | None = None
     member_type: str | None = None
+    date_basis: str = "event_effective_date"
 
 
 @dataclass(frozen=True)
@@ -184,6 +185,7 @@ def classify_quarterly_movements(
                     action.supporting_evidence,
                     category=action.category,
                     member_type=action.member_type,
+                    date_basis=action.date_basis,
                 )
             )
 
@@ -267,6 +269,7 @@ def classify_quarterly_movements(
                     source_document_ref=revision.source_document_ref,
                     category=revision.desired_category,
                     member_type=approved.member_type if approved else None,
+                    date_basis="board_effective_date" if approved and approved.effective_date else "board_status_date",
                 )
             )
             continue

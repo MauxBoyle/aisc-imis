@@ -26,6 +26,7 @@ class M4MovementRow:
     member_type: str | None
     operational_status: str
     ledger_evidence_refs: str
+    date_basis: str = "event_effective_date"
 
 
 @dataclass(frozen=True)
@@ -100,6 +101,7 @@ def build_m4_resignations_reinstatements(
                 movement.member_type,
                 "former_member" if movement.action == "resigned" else "current_member",
                 _evidence_refs(movement),
+                movement.date_basis,
             )
         )
 

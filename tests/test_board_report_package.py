@@ -23,7 +23,7 @@ def _inputs(tmp_path):
     with (reference / "snapshot_dates.csv").open("a", encoding="utf-8") as file:
         file.write("2026-10-15\n")
     files = {
-        "current": "iMIS Id,Member Type,Is Company,Is Member,Last Updated,Status,Category\n001,ACT,True,True,2026-10-18,A,BEND\n",
+        "current": "iMIS Id,Member Type,Is Company,Is Member,Last Updated,Status,Category\n001,ACT,True,True,2026-10-18,A,BEND\n002,ACT,True,True,2026-10-18,A,BEND\n",
         "history": "iMIS Id,Member Type,Is Company,Is Member,Last Updated,Status,Category\n001,ACT,True,True,2026-10-14,A,BEND\n002,FACT,True,True,2026-10-15,A,BEND\n",
         "changes": "ChangeID,Ordinal,Change Type,Member Type,ChangeUpdate,ChangeCreated,Status\n002,1,JOIN,ACT,2026-10-17,2026-10-17,A\n",
         "activity": "iMIS Id,Sequence,A_Transaction,Activity Type,Effective Date,Member Type,Is a Company\n",
@@ -81,6 +81,8 @@ def test_complete_package_is_traceable_and_repeatable(tmp_path):
     assert len(m2) == 1
     assert m2[0]["imis_id"] == "002"
     assert m2[0]["company"] == "Invented Company"
+    assert m2[0]["date_basis"] == "join_date"
+    assert m2[0]["effective_date"] == "2026-10-17"
     assert m2[0]["lifecycle_evidence_refs"]
     with (inputs.output_directory / "member_evidence.csv").open() as file:
         rows = list(csv.DictReader(file))
@@ -125,8 +127,9 @@ def test_earlier_as_of_excludes_later_current_snapshot(tmp_path):
     build_board_report_package(inputs)
     with (inputs.output_directory / "member_drilldown.csv").open() as file:
         member = next(csv.DictReader(file))
-    assert member["closing_countability"] == "unknown"
-    assert member["opening_countability"] == "unknown"
+    # The older history row is now covered by the June 30 rule version.
+    assert member["closing_countability"] == "countable"
+    assert member["opening_countability"] == "countable"
     with (inputs.output_directory / "member_evidence.csv").open() as file:
         current = [
             row

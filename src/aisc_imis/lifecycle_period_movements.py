@@ -12,6 +12,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
+from aisc_imis.dated_membership import rule_date, select_first_join
 from aisc_imis.evidence_ledger import (
     CandidateLifecycleEvent,
     InterpretationStatus,
@@ -78,6 +79,7 @@ class DatedLifecycleAction:
     category: str | None
     supporting_evidence: tuple[MemberLedgerEntry, ...]
     member_type: str | None = None
+    date_basis: str = "event_effective_date"
 
 
 @dataclass(frozen=True)
@@ -185,7 +187,8 @@ def analyze_period_membership_movements(
         all_findings.extend(contributor.findings)
         for action in contributor.lifecycle_actions:
             gross[action] += 1
-        if contributor.opening_countability is Countability.UNKNOWN or contributor.closing_countability is Countability.UNKNOWN:
+        if (contributor.opening_countability is Countability.UNKNOWN or contributor.closing_countability is Countability.UNKNOWN
+            or any(finding.code == "undated_snapshot_change" for finding in contributor.findings)):
             continue
         net_changes.append(
             int(contributor.closing_countability is Countability.COUNTABLE)
@@ -250,7 +253,7 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
         if when >= start:
             event_point = next((point for point in day if point.event_name in {"joined", "reinstated", "resigned", "expelled"}), None)
             if event_point is not None:
-                if profile.countability is Countability.UNKNOWN:
+                if profile.countability is Countability.UNKNOWN and event_point.event_name != "joined":
                     findings.append(MovementFinding("unknown_starting_state", "A lifecycle event cannot be counted without a known preceding state.", (event_point.entry,)))
                 elif next_profile.countability == profile.countability:
                     findings.append(MovementFinding("repeated_lifecycle_event", "The event cannot represent a state change.", (event_point.entry,)))
@@ -258,19 +261,22 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
                     actions.append(event_point.event_name)
                     action_category = next_profile.category if next_profile.countability is Countability.COUNTABLE else profile.category
                     action_member_type = next_profile.member_type if next_profile.countability is Countability.COUNTABLE else profile.member_type
-                    dated_actions.append(DatedLifecycleAction(event_point.event_name, when, action_category, tuple(point.entry for point in day), action_member_type))
+                    basis = "join_date" if any(getattr(point.entry.record, "fact_name", None) == "join_date" for point in day) else event_point.entry.record.date_basis
+                    dated_actions.append(DatedLifecycleAction(event_point.event_name, when, action_category, tuple(point.entry for point in day), action_member_type, basis))
             elif (
                 profile.countability is Countability.COUNTABLE
                 and next_profile.countability is Countability.NOT_COUNTABLE
             ):
-                # A confirmed snapshot state change is an inferred exit, even
-                # when no separate lifecycle-event record names that exit.
-                actions.append("exited")
-                dated_actions.append(DatedLifecycleAction("exited", when, profile.category, tuple(point.entry for point in day), profile.member_type))
+                findings.append(MovementFinding("undated_snapshot_change", "A later snapshot confirms an exit but does not date it.", tuple(point.entry for point in day)))
             _transfers(profile, next_profile, when, tuple(point.entry for point in day), grouping, category)
         profile = next_profile
         used.extend(item.entry for item in day)
     opening = _profile_at(points, start, rules, entries)
+    if (opening.countability is Countability.UNKNOWN and dated_actions
+        and dated_actions[0].action == "joined"
+        and dated_actions[0].date_basis == "join_date"
+        and not any(when < start for when in points)):
+        opening = _Profile(Countability.NOT_COUNTABLE, None, None)
     closing = profile
     if opening.countability is Countability.UNKNOWN:
         findings.append(MovementFinding("unknown_starting_state", "No confirmed countability state covers the period start."))
@@ -316,18 +322,35 @@ def _points(entries: tuple[MemberLedgerEntry, ...], end: date, rules: LifecycleR
     output: dict[date, list[_Point]] = defaultdict(list)
     findings: list[MovementFinding] = []
     snapshot_groups: dict[tuple[object, ...], list[MemberLedgerEntry]] = defaultdict(list)
+    selection = select_first_join(entries, rules, knowledge_cutoff or end - timedelta(days=1))
+    findings.extend(MovementFinding(code, "Join Date needs review.", selection.evidence) for code in selection.findings)
+    if selection.effective_date is not None and selection.effective_date < end:
+        supporter = next((item for item in selection.evidence if isinstance(item.record, SnapshotStateObservation) and item.record.state_name.startswith("member_type=")), None)
+        category = next((item.record.state_name.partition("=")[2] for item in selection.evidence if isinstance(item.record, SnapshotStateObservation) and item.record.state_name.startswith("category=")), None)
+        if supporter is not None:
+            member_type = supporter.record.state_name.partition("=")[2]
+            join_entry = next(item for item in selection.evidence if getattr(item.record, "fact_name", None) == "join_date")
+            output[selection.effective_date].append(_Point(selection.effective_date, _Profile(Countability.COUNTABLE, member_type, category), "joined", join_entry))
+            output[selection.effective_date].extend(
+                _Point(selection.effective_date, _Profile(Countability.COUNTABLE, member_type, category), None, item)
+                for item in selection.evidence if item is not join_entry
+            )
     for entry in entries:
         record = entry.record
         if isinstance(record, SnapshotStateObservation):
             snapshot_groups[(record.source_reference, record.effective_date, record.recorded_date, record.observed_date)].append(entry)
         elif isinstance(record, CandidateLifecycleEvent):
             when = _day(record.effective_date)
-            if when is None or when >= end or not _known(record.recorded_date, record.observed_date, end, knowledge_cutoff):
+            if when is None:
+                if _known(record.recorded_date, record.observed_date, end, knowledge_cutoff):
+                    findings.append(MovementFinding("missing_lifecycle_date", "Lifecycle event has no effective or transaction date.", (entry,)))
+                continue
+            if when >= end or not _known(record.recorded_date, record.observed_date, end, knowledge_cutoff):
                 continue
             if record.interpretation_status in {InterpretationStatus.AMBIGUOUS, InterpretationStatus.UNRESOLVED}:
                 findings.append(MovementFinding("unresolved_lifecycle_evidence", "Lifecycle evidence needs review.", (entry,)))
                 continue
-            decision = evaluate_countability(LifecycleObservation(event_name=record.event_name), when, rules)
+            decision = evaluate_countability(LifecycleObservation(event_name=record.event_name), rule_date(when, rules), rules)
             if decision.event_target_state in {None, "", "none"} and record.event_name != "transferred":
                 findings.append(MovementFinding("unresolved_lifecycle_evidence", "Lifecycle event has no approved transition.", (entry,)))
                 continue
@@ -337,13 +360,13 @@ def _points(entries: tuple[MemberLedgerEntry, ...], end: date, rules: LifecycleR
         record = grouped[0].record
         assert isinstance(record, SnapshotStateObservation)
         when = _day(record.effective_date) or _day(record.observed_date)
-        if when is None or when >= end or not _known(record.recorded_date, record.observed_date, end, knowledge_cutoff):
+        if when is None or when >= end or not _known(record.observed_date or record.recorded_date, None, end, knowledge_cutoff):
             continue
         values = _snapshot_values(grouped)
         if values is None:
             findings.append(MovementFinding("invalid_snapshot_field", "Snapshot state fields are invalid or incomplete.", tuple(grouped)))
             continue
-        decision = evaluate_countability(LifecycleObservation(**values), when, rules)
+        decision = evaluate_countability(LifecycleObservation(**values), rule_date(when, rules), rules)
         if decision.countability is Countability.UNKNOWN:
             findings.append(MovementFinding("unresolved_lifecycle_evidence", "Snapshot evidence has no approved countability state.", tuple(grouped)))
             continue

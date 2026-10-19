@@ -25,6 +25,10 @@ uv run python scripts/build_board_report_package.py \
 
 `--period-start` and `--as-of-date` are inclusive calendar dates. The program calculates the exclusive period end as the day after the as-of date. `--board-cutoff` is the last day of knowledge allowed for the Board view. `--current-export-date` is when the current file was exported; it must be no later than the cutoff. Current rows are dated at export time, even if their `Last Updated` values are older.
 
+The command prints each major stage as it runs. With large contact exports, reading and reconciling can take some time; the output directory appears when the report files are ready to be written. A current export taken after the as-of date remains in the evidence and reconciliation files, but its later snapshot state is not used to calculate movements for the earlier period.
+
+Check the effective dates in `data/reference/lifecycle-rules.csv` before running an earlier period. If the as-of date precedes every reviewed rule, the command warns that M1 may be unresolved. The package is still produced so the source evidence and findings can be reviewed, but an unresolved M1 is not a usable membership count.
+
 ## Review the package
 
 The seven measure files are `m1_membership_numbers.csv`, `m2_new_members.csv`, `m3_new_members.csv`, `m4_resignations.csv`, `m4_reinstatements.csv`, `m5_pending_proposals.csv`, and `m5_completed_expulsions.csv`. `member_drilldown.csv` shows one row per member with opening and closing countability and ledger record IDs. Look up those IDs in `member_evidence.csv` to trace source rows. `findings.csv` contains source, conversion, reconciliation, movement, M2–M5, and M1 status findings. A reviewed reconciliation finding remains in the file with its review status; stale, expired, and unmatched reviews remain visible too. Other findings retain their producer name and code.

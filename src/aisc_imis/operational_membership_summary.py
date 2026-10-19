@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
+from aisc_imis.dated_membership import select_first_join
 from aisc_imis.evidence_ledger import CandidateLifecycleEvent, SnapshotStateObservation
 from aisc_imis.lifecycle_period_movements import (
     EvidenceCorrection,
@@ -110,6 +112,13 @@ def summarize_operational_membership(
         for entry in supplied_entries
         if _is_relevant_boundary_evidence(entry, end, knowledge_cutoff)
     }
+    by_subject: dict[str, list[MemberLedgerEntry]] = defaultdict(list)
+    for entry in supplied_entries:
+        by_subject[entry.record.subject_key].append(entry)
+    for subject_key, subject_entries in by_subject.items():
+        selected_join = select_first_join(subject_entries, rules, knowledge_cutoff or as_of_date)
+        if selected_join.effective_date is not None and selected_join.effective_date < end:
+            relevant_subjects.add(subject_key)
     selected_entries = tuple(
         entry
         for entry in supplied_entries

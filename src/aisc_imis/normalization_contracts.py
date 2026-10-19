@@ -114,7 +114,7 @@ class ActivityRecord(EvidenceRecord):
     sequence: str
     transaction: str
     activity_type: str
-    effective_date: str
+    effective_date: str | None
     member_type: str
     is_company: str
     transaction_date: str | None
@@ -216,10 +216,11 @@ def validate_activity_record(
         "Sequence",
         "A_Transaction",
         "Activity Type",
-        "Effective Date",
         "Member Type",
         "Is a Company",
     )
+    if not _has_text(row.get("Transaction Date")):
+        required = (*required, "Effective Date")
     rejection = _rejection_if_invalid(row, reference, required)
     if rejection:
         return rejection
@@ -230,7 +231,7 @@ def validate_activity_record(
         row["Sequence"],
         row["A_Transaction"],
         row["Activity Type"],
-        row["Effective Date"],
+        _optional(row, "Effective Date"),
         row["Member Type"],
         row["Is a Company"],
         _optional(row, "Transaction Date"),

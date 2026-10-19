@@ -67,7 +67,23 @@ def test_current_and_historical_rows_emit_ordered_state_observations(tmp_path, r
     assert all(record.source_reference.row_reference == "row-2" for record in historical_result.records)
 
 
-def test_membership_change_uses_imis_id_and_created_date_by_default(tmp_path, references):
+def test_snapshot_join_date_is_a_fact_available_on_export_date(tmp_path, references):
+    source = tmp_path / "current.csv"
+    source.write_text(
+        "iMIS Id,Member Type,Is Company,Is Member,Last Updated,Join Date\n"
+        "00017,ACT,True,True,2026-09-20,2026-09-16\n",
+        encoding="utf-8",
+    )
+    result = convert_current_member_observations(
+        read_current_member_records(source, references).observations,
+        export_date=date(2026, 10, 15),
+    )
+    join = next(record for record in result.records if isinstance(record, ObservedFact))
+    assert (join.fact_name, join.fact_value) == ("join_date", "2026-09-16")
+    assert (join.recorded_date, join.observed_date) == (date(2026, 10, 15), date(2026, 10, 15))
+
+
+def test_membership_change_is_unlinked_and_cannot_move_a_company(tmp_path, references):
     source = tmp_path / "changes.csv"
     source.write_text(
         "ChangeID,Ordinal,Change Type,Member Type,ChangeUpdate,ChangeCreated,Status,ChangeEffective\n"
@@ -79,11 +95,11 @@ def test_membership_change_uses_imis_id_and_created_date_by_default(tmp_path, re
     )
     record = result.records[0]
 
-    assert isinstance(record, CandidateLifecycleEvent)
-    assert (record.subject_key, record.event_name) == ("00017", "joined")
-    assert (record.effective_date, record.recorded_date) == (date(2026, 1, 3), date(2026, 1, 3))
-    assert record.source_references[0].row_reference == "row-2"
-    assert result.findings == ()
+    assert isinstance(record, ObservedFact)
+    assert (record.subject_key, record.fact_name, record.fact_value) == ("00017", "unlinked_membership_change", "joined")
+    assert (record.effective_date, record.recorded_date) == (date(2026, 1, 2), date(2026, 1, 3))
+    assert record.source_reference.row_reference == "row-2"
+    assert [finding.code for finding in result.findings] == ["unlinked_membership_change"]
 
 
 def test_unresolved_membership_change_is_a_fact_with_a_finding(tmp_path, references):
@@ -160,3 +176,20 @@ def test_activity_conversion_keeps_dates_provenance_and_unresolved_codes_nontran
         assert record.fact_name == name
         assert record.source_reference.row_reference == "row-2"
     assert [item.code for item in result.findings] == ([] if finding is None else [finding])
+
+
+def test_activity_uses_transaction_date_when_effective_date_is_missing(tmp_path, references):
+    source = tmp_path / "activity.csv"
+    source.write_text(
+        "iMIS Id,Sequence,A_Transaction,Activity Type,Effective Date,Member Type,Is a Company,Transaction Date\n"
+        "00017,1,TX-1,LEAVE,,ACT,True,2026-03-01\n",
+        encoding="utf-8",
+    )
+    result = convert_activity_history_observations(
+        read_activity_history_records(source, references).observations
+    )
+    record = result.records[0]
+    assert isinstance(record, CandidateLifecycleEvent)
+    assert record.effective_date == date(2026, 3, 1)
+    assert record.recorded_date == date(2026, 3, 1)
+    assert record.date_basis == "transaction_date"

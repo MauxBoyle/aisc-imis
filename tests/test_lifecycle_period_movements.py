@@ -38,9 +38,9 @@ def test_grouping_category_and_combined_transfers_do_not_change_population():
 def test_countable_to_uncountable_snapshot_change_is_not_a_transfer():
     result = analyze((*snapshots("ACT", "A", date(2026, 10, 15), "open"), *snapshots("FACT", "B", date(2026, 10, 16), "closed")))
 
-    assert result.net_population_change == -1
-    assert result.gross_lifecycle_actions == {"exited": 1}
-    assert result.contributors[0].lifecycle_actions == ("exited",)
+    assert result.net_population_change is None
+    assert result.gross_lifecycle_actions == {}
+    assert any(item.code == "undated_snapshot_change" for item in result.findings)
     assert result.membership_grouping_transfers == ()
     assert result.category_transfers == ()
 

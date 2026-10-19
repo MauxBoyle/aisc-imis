@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import date
 
 from aisc_imis.activity_history_records import ActivityHistoryObservation
 from aisc_imis.current_member_records import CurrentMemberObservation
@@ -21,7 +22,9 @@ from aisc_imis.evidence_ledger import (
 )
 from aisc_imis.historical_snapshot_records import HistoricalSnapshotObservation
 from aisc_imis.membership_change_records import MembershipChangeObservation
+from aisc_imis.new_members import NewMemberIqaRow
 from aisc_imis.normalization_contracts import SourceReference
+from aisc_imis.normalization_parsers import parse_date
 
 
 @dataclass(frozen=True)
@@ -43,16 +46,19 @@ class EvidenceConversionResult:
 
 def convert_current_member_observations(
     observations: Iterable[CurrentMemberObservation],
+    *,
+    export_date: date | None = None,
 ) -> EvidenceConversionResult:
     """Turn present-state rows into state observations using normalized iMIS IDs."""
     records: list[LedgerRecord] = []
     for observation in observations:
+        records.extend(_join_date_fact(observation.imis_id, observation.record.reference, observation.record.raw_value("Join Date"), export_date or observation.last_updated, export_date))
         records.extend(
             _snapshot_states(
                 subject_key=observation.imis_id,
                 reference=observation.record.reference,
-                recorded_date=observation.last_updated,
-                observed_date=None,
+                recorded_date=export_date or observation.last_updated,
+                observed_date=export_date,
                 member_type=observation.member_type,
                 status=observation.status,
                 is_member=observation.is_member,
@@ -69,6 +75,7 @@ def convert_historical_snapshot_observations(
     """Turn historical rows into state observations with configured coverage dates."""
     records: list[LedgerRecord] = []
     for observation in observations:
+        records.extend(_join_date_fact(observation.imis_id, observation.record.reference, observation.record.raw_value("Join Date"), observation.observation_date, observation.observation_date))
         records.extend(
             _snapshot_states(
                 subject_key=observation.imis_id,
@@ -88,32 +95,28 @@ def convert_historical_snapshot_observations(
 def convert_membership_change_observations(
     observations: Iterable[MembershipChangeObservation],
 ) -> EvidenceConversionResult:
-    """Convert reviewed change types; retain every other change type as a fact."""
+    """Retain ChangeID rows as facts until a company link is reviewed."""
     records: list[LedgerRecord] = []
     findings: list[ConversionFinding] = []
     for observation in observations:
         classification = observation.change_classification
         if _has_lifecycle_name(classification):
             records.append(
-                CandidateLifecycleEvent(
+                ObservedFact(
                     subject_key=observation.change_id,
-                    event_name=classification.draft_lifecycle_name,
-                    source_references=(observation.record.reference,),
-                    interpretation_reason=(
-                        "Reviewed Membership changes / Change Type taxonomy maps "
-                        f"{observation.change_type!r} to "
-                        f"{classification.draft_lifecycle_name!r}."
-                    ),
-                    # The reviewed default for a membership-change event is
-                    # when it was created.  ``ChangeEffective`` remains in
-                    # the immutable source row for later backdating review;
-                    # it is not silently used as the event date.
-                    effective_date=observation.change_created,
+                    fact_name="unlinked_membership_change",
+                    fact_value=classification.draft_lifecycle_name,
+                    source_reference=observation.record.reference,
+                    effective_date=observation.change_effective or observation.change_created,
                     recorded_date=observation.change_created,
-                    member_type=observation.member_type,
-                    category=observation.category,
+                    interpretation_status=InterpretationStatus.UNRESOLVED,
                 )
             )
+            findings.append(_unresolved_finding(
+                "unlinked_membership_change",
+                "ChangeID has no reviewed company link; this row cannot move membership.",
+                observation.record.reference,
+            ))
             continue
         records.append(_unresolved_change_fact(observation))
         findings.append(
@@ -156,8 +159,9 @@ def convert_activity_history_observations(
                         f"{observation.activity_type!r} to "
                         f"{classification.draft_lifecycle_name!r}."
                     ),
-                    effective_date=observation.effective_date,
+                    effective_date=observation.effective_date or observation.transaction_date,
                     recorded_date=observation.transaction_date,
+                    date_basis="event_effective_date" if observation.effective_date else "transaction_date",
                 )
             )
         else:
@@ -212,6 +216,30 @@ def _snapshot_states(
         for field, value in values
         if value is not None
     )
+
+
+def _join_date_fact(
+    subject_key: str, reference: SourceReference, raw: str | None,
+    recorded_date: DateValue | None, observed_date: DateValue | None,
+) -> tuple[ObservedFact, ...]:
+    if not raw or not raw.strip():
+        return ()
+    parsed = parse_date(raw)
+    if parsed.normalized is None:
+        return (ObservedFact(subject_key, "join_date", raw.strip(), reference, recorded_date=recorded_date, observed_date=observed_date, interpretation_status=InterpretationStatus.UNRESOLVED),)
+    chosen = parsed.normalized.date() if hasattr(parsed.normalized, "date") else parsed.normalized
+    return (ObservedFact(subject_key, "join_date", chosen.isoformat(), reference, recorded_date=recorded_date, observed_date=observed_date),)
+
+
+def convert_iqa_join_dates(
+    rows: Iterable[NewMemberIqaRow], export_date: date
+) -> EvidenceConversionResult:
+    """Keep IQA dates as candidates; a countable company snapshot must support one."""
+    records: list[LedgerRecord] = []
+    for row in rows:
+        reference = SourceReference(row.source_file, f"row-{row.source_row}")
+        records.extend(_join_date_fact(row.imis_id, reference, row.join_date, export_date, export_date))
+    return EvidenceConversionResult(tuple(records), ())
 
 
 def _unresolved_change_fact(observation: MembershipChangeObservation) -> ObservedFact:

@@ -1,5 +1,8 @@
 # M4 resignations and reinstatements
 
+Each output row includes `date_basis` to identify the event effective or
+transaction date used for the movement.
+
 `build_m4_resignations_reinstatements(movements)` takes a `QuarterlyMovementResult` from `classify_quarterly_movements()` and selects its counted M4 resignations and reinstatements. It returns separate `resignations` and `reinstatements` tuples, `counts`, and `findings`. Selection is pure: it does not write files or change the classifier result.
 
 The classifier's period is `[start_date, end_date)`: the effective date places an action in the period, and the recorded date determines whether the evidence was known by the inclusive `report_cutoff`. If a recorded date is absent, the classifier uses the observed date. A resignation followed by reinstatement in the same period appears once in each list. Category and Member Type transfers are separate movements. Each M4 row keeps the Category and Member Type at its action.

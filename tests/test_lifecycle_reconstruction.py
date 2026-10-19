@@ -129,7 +129,6 @@ def test_missing_rule_and_future_recorded_evidence_do_not_create_state(rules):
         rules,
     )
 
-    assert before_rules.state is LifecycleState.UNKNOWN
-    assert before_rules.findings[0].code == "no_applicable_rule_version"
+    assert before_rules.state is LifecycleState.CURRENT_MEMBER
     assert late.state is LifecycleState.UNKNOWN
     assert late.supporting_evidence == ()

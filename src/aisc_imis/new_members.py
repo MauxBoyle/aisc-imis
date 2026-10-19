@@ -77,6 +77,7 @@ class NewMemberRow:
     lifecycle_evidence_refs: str
     board_evidence_ref: str
     iqa_source_refs: str
+    date_basis: str = "event_effective_date"
 
 
 @dataclass(frozen=True)
@@ -155,8 +156,8 @@ def build_m2_m3_new_members(
 ) -> M2M3NewMembers:
     """Select classified ACT/ASSOC joins, then attach exact-ID IQA details.
 
-    IQA Join Date is display evidence only. A missing or conflicting IQA match
-    leaves the classified join present with blank display fields.
+    The movement classifier selects a supported Join Date before this writer
+    attaches IQA display fields. Conflicting IQA matches leave those fields blank.
     """
     by_id: dict[str, list[NewMemberIqaRow]] = defaultdict(list)
     for row in iqa_rows:
@@ -352,6 +353,7 @@ def build_m2_m3_new_members(
                 lifecycle_evidence_refs=_lifecycle_refs(movement),
                 board_evidence_ref=board_ref,
                 iqa_source_refs="; ".join(refs),
+                date_basis=movement.date_basis,
             )
         )
     m2 = tuple(sorted(output["M2"], key=lambda row: (row.effective_date, row.imis_id)))

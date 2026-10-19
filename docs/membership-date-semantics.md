@@ -24,7 +24,7 @@ Dates before 1900 or after 2026-10-15 are counted as implausible.
 | Field | Classification / open question |
 | --- | --- |
 | `Date Added` | Recorded/create-date candidate. It may be a contact-record creation date rather than a membership date. |
-| `Join Date` | Candidate membership effective date. Confirm its business definition before using it for membership ordering. |
+| `Join Date` | First-join effective date candidate when countable company evidence supports it; conflicting dates require review. |
 | `Last Updated` | Recorded/update-date candidate. It records an update observation, not necessarily an effective change. |
 
 ### Field profile
@@ -53,7 +53,7 @@ The left field is compared with the right field at date precision. A missing pai
 | Field | Classification / open question |
 | --- | --- |
 | `Date Added` | Recorded/create-date candidate. It may be a contact-record creation date rather than a membership date. |
-| `Join Date` | Candidate membership effective date. Confirm its business definition before using it for membership ordering. |
+| `Join Date` | First-join effective date candidate when countable company evidence supports it; conflicting dates require review. |
 | `Last Updated` | Recorded/update-date candidate. It records an update observation, not necessarily an effective change. |
 
 ### Field profile

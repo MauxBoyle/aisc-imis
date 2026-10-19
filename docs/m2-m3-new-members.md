@@ -11,7 +11,7 @@ The classifier uses a half-open period `[start_date, end_date)` and an inclusive
 | IQA column | M2/M3 CSV column | Meaning |
 | --- | --- | --- |
 | `iMIS Id` | `imis_id` | Exact matching key; leading zeroes remain significant. |
-| `Join Date` | `join_date` | IQA display value only; it does not select the quarter or approve a join. |
+| `Join Date` | `join_date` | Candidate first-join effective date when a countable company snapshot supports the same iMIS ID. Conflicts produce findings. |
 | `Member Type` | `member_type` | Checked against the classified type; classification supplies the CSV value. |
 | `Company` | `company` | Display name. |
 | `Full Address` | `full_address` | Display address. |
@@ -25,6 +25,8 @@ The nine IQA columns are required in the file header. Blank values produce `miss
 A Board-only join can have a local `member_ref` without an iMIS ID. In that case, `imis_id` and IQA display fields stay blank, and `missing_board_imis_id` identifies the member reference and Board action for review. An iMIS ID found in any visible revision of that action supplies the ID instead.
 
 ## Output and reconciliation
+
+Each CSV row includes `date_basis`, such as `join_date` or `board_effective_date`.
 
 `write_m2_m3_csv(result, output_dir)` writes `m2_new_members.csv` and `m3_new_members.csv`, ordered by effective date and iMIS ID. Use ignored `reports/` for operational output. Each file has the same columns: `measure`, `imis_id`, `member_type`, `operational_status`, `board_action_status`, `proposed_date`, `approved_date`, `effective_date`, `recorded_date`, `report_cutoff`, `join_date`, `company`, `full_address`, `category`, `tonnage_est`, `reference_contact`, `reference_company`, `lifecycle_evidence_refs`, `board_evidence_ref`, and `iqa_source_refs`. Missing dates and display fields are blank. Evidence references point to ledger record IDs and source rows, Board action documents, and IQA file rows.
 
