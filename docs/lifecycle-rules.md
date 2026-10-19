@@ -7,7 +7,7 @@ exists, while this file records the limited decisions approved for reporting.
 
 ## First rule version
 
-The first provisional version is `2026-10-15`, effective **on and after** that
+The first provisional version is `2026-06-30`, effective **on and after** that
 reporting date. A request for an earlier date has no applicable rule version,
 so the evaluator returns an `unknown` decision with a
 `no_applicable_rule_version` finding. It never applies a later rule backwards.
@@ -45,7 +45,7 @@ from aisc_imis.lifecycle_rules import (
 rules = load_lifecycle_rules("data/reference")
 decision = evaluate_countability(
     LifecycleObservation(member_type="ACT", is_company=True, is_member=True),
-    date(2026, 10, 15),
+    date(2026, 6, 30),
     rules,
 )
 assert decision.countability == "countable"

@@ -4,7 +4,7 @@ This checklist records business-rule questions that are not yet settled. It is
 intended to support the membership-history roadmap; it is not an instruction to
 change any source export or historical record.
 
-The approved provisional decisions below are encoded from 2026-10-15 onward
+The approved provisional decisions below are encoded from 2026-06-30 onward
 in the version-controlled [lifecycle rules](lifecycle-rules.md). Decisions
 that remain unchecked are deliberately findings, not inferred policy.
 

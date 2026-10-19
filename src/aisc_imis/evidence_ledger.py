@@ -72,6 +72,7 @@ class CandidateLifecycleEvent:
     recorded_date: DateValue | None = None
     observed_date: DateValue | None = None
     interpretation_status: InterpretationStatus = InterpretationStatus.INFERRED
+    date_basis: str = "event_effective_date"
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "source_references", tuple(self.source_references))
@@ -151,6 +152,12 @@ def _record_to_row(record: LedgerRecord) -> dict[str, str]:
         "recorded_date": _format_date(record.recorded_date),
         "observed_date": _format_date(record.observed_date),
         "interpretation_status": record.interpretation_status.value,
+        "date_basis": (
+            record.date_basis if isinstance(record, CandidateLifecycleEvent)
+            else "join_date" if isinstance(record, ObservedFact) and record.fact_name == "join_date"
+            else "snapshot_observation_date" if isinstance(record, SnapshotStateObservation)
+            else ""
+        ),
     }
     if isinstance(record, ObservedFact):
         return {
@@ -225,6 +232,7 @@ def _row_to_record(row: Mapping[str, str]) -> LedgerRecord:
             interpretation_reason=_required(row, "interpretation_reason"),
             member_type=_optional_value(row, "member_type"),
             category=_optional_value(row, "category"),
+            date_basis=row.get("date_basis") or "event_effective_date",
         )
     if len(sources) != 1:
         raise ValueError("snapshot_state_observation requires exactly one source reference")

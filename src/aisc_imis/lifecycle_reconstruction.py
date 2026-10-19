@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum
 
+from aisc_imis.dated_membership import rule_date, select_first_join
 from aisc_imis.evidence_ledger import (
     CandidateLifecycleEvent,
     InterpretationStatus,
@@ -89,6 +90,7 @@ def reconstruct_member_lifecycle(
     entries: Iterable[MemberLedgerEntry],
     as_of_date: date,
     rules: LifecycleRules,
+    knowledge_cutoff: date | None = None,
 ) -> LifecycleReconstruction:
     """Reconstruct one confirmed member's state as of ``as_of_date``.
 
@@ -98,12 +100,14 @@ def reconstruct_member_lifecycle(
     and produce an unknown interval instead of an arbitrary ordering.
     """
     evidence = tuple(entries)
+    cutoff = knowledge_cutoff or as_of_date
     subject_keys = {entry.record.subject_key for entry in evidence}
     if len(subject_keys) > 1:
         raise ValueError("Reconstruction accepts evidence for exactly one subject_key.")
     subject_key = next(iter(subject_keys), "")
     findings: list[ReconstructionFinding] = []
     has_unplaced_unknown = False
+    latest_unplaced_date: date | None = None
     points_by_date: dict[date, list[_StatePoint]] = defaultdict(list)
     retained: list[MemberLedgerEntry] = []
 
@@ -114,11 +118,12 @@ def reconstruct_member_lifecycle(
             snapshot_groups[_snapshot_key(entry)].append(entry)
         elif isinstance(record, CandidateLifecycleEvent):
             if record.effective_date is None and _known_by(
-                record.recorded_date, record.observed_date, as_of_date
+                record.recorded_date, record.observed_date, cutoff
             ):
                 has_unplaced_unknown = True
+                latest_unplaced_date = max(latest_unplaced_date or date.min, _calendar_date(record.recorded_date) or _calendar_date(record.observed_date) or date.min)
                 findings.append(_missing_date_finding(entry, "event"))
-            point = _event_point(entry, as_of_date, rules)
+            point = _event_point(entry, as_of_date, rules, cutoff)
             if point is not None:
                 points_by_date[point.when].append(point)
                 retained.extend(point.evidence)
@@ -130,15 +135,21 @@ def reconstruct_member_lifecycle(
         if (
             first_record.effective_date is None
             and first_record.observed_date is None
-            and _known_by(first_record.recorded_date, None, as_of_date)
+            and _known_by(first_record.recorded_date, None, cutoff)
         ):
             has_unplaced_unknown = True
             findings.append(_missing_date_finding(group[0], "snapshot"))
-        point = _snapshot_point(tuple(group), as_of_date, rules)
+        point = _snapshot_point(tuple(group), as_of_date, rules, cutoff)
         if point is not None:
             points_by_date[point.when].append(point)
             retained.extend(point.evidence)
             findings.extend(point.findings)
+
+    selection = select_first_join(evidence, rules, cutoff)
+    findings.extend(ReconstructionFinding(code, "Join Date needs review.", selection.evidence) for code in selection.findings)
+    if selection.effective_date is not None and selection.effective_date <= as_of_date:
+        points_by_date[selection.effective_date].append(_StatePoint(selection.effective_date, LifecycleState.CURRENT_MEMBER, selection.evidence, ()))
+        retained.extend(selection.evidence)
 
     intervals: list[StateInterval] = []
     current_state = LifecycleState.UNKNOWN
@@ -153,6 +164,10 @@ def reconstruct_member_lifecycle(
         elif state == current_state:
             current_evidence += point_evidence
         else:
+            if (current_state is LifecycleState.CURRENT_MEMBER
+                and state is LifecycleState.FORMER_MEMBER
+                and all(isinstance(item.record, SnapshotStateObservation) for item in point_evidence)):
+                findings.append(ReconstructionFinding("undated_snapshot_change", "The snapshot confirms former status but does not date the exit.", point_evidence))
             intervals.append(
                 StateInterval(current_start, when, current_state, current_evidence)
             )
@@ -163,7 +178,7 @@ def reconstruct_member_lifecycle(
 
     result_state = (
         LifecycleState.UNKNOWN
-        if has_unplaced_unknown or current_start is None
+        if current_start is None or (has_unplaced_unknown and (latest_unplaced_date or date.min) > current_start)
         else current_state
     )
     return LifecycleReconstruction(
@@ -177,21 +192,21 @@ def reconstruct_member_lifecycle(
 
 
 def _event_point(
-    entry: MemberLedgerEntry, as_of_date: date, rules: LifecycleRules
+    entry: MemberLedgerEntry, as_of_date: date, rules: LifecycleRules, cutoff: date
 ) -> _StatePoint | None:
     record = entry.record
     assert isinstance(record, CandidateLifecycleEvent)
     when = _calendar_date(record.effective_date)
     if when is None:
         return _missing_date_point(entry, as_of_date, "event")
-    if not _usable_by(record.recorded_date, record.observed_date, when, as_of_date):
+    if not _usable_by(record.recorded_date, record.observed_date, when, as_of_date, cutoff):
         return None
     if record.interpretation_status in {
         InterpretationStatus.AMBIGUOUS,
         InterpretationStatus.UNRESOLVED,
     }:
         return _unknown_point(when, entry, "unresolved_lifecycle_evidence")
-    decision = evaluate_countability(LifecycleObservation(event_name=record.event_name), when, rules)
+    decision = evaluate_countability(LifecycleObservation(event_name=record.event_name), rule_date(when, rules), rules)
     findings = tuple(
         ReconstructionFinding(finding.code, finding.message, (entry,))
         for finding in decision.findings
@@ -205,14 +220,14 @@ def _event_point(
 
 
 def _snapshot_point(
-    entries: tuple[MemberLedgerEntry, ...], as_of_date: date, rules: LifecycleRules
+    entries: tuple[MemberLedgerEntry, ...], as_of_date: date, rules: LifecycleRules, cutoff: date
 ) -> _StatePoint | None:
     first = entries[0].record
     assert isinstance(first, SnapshotStateObservation)
     when = _calendar_date(first.effective_date) or _calendar_date(first.observed_date)
     if when is None:
         return _missing_date_point(entries[0], as_of_date, "snapshot")
-    if not _usable_by(first.recorded_date, first.observed_date, when, as_of_date):
+    if not _usable_by(first.observed_date or first.recorded_date, None, when, as_of_date, cutoff):
         return None
     if any(
         entry.record.interpretation_status
@@ -223,7 +238,7 @@ def _snapshot_point(
     values = _snapshot_values(entries)
     if values is None:
         return _unknown_point(when, entries, "invalid_snapshot_field")
-    decision = evaluate_countability(LifecycleObservation(**values), when, rules)
+    decision = evaluate_countability(LifecycleObservation(**values), rule_date(when, rules), rules)
     findings = tuple(
         ReconstructionFinding(finding.code, finding.message, entries)
         for finding in decision.findings
@@ -318,8 +333,9 @@ def _usable_by(
     observed: date | datetime | None,
     applies: date,
     as_of_date: date,
+    cutoff: date,
 ) -> bool:
-    return applies <= as_of_date and _known_by(recorded, observed, as_of_date)
+    return applies <= as_of_date and _known_by(recorded, observed, cutoff)
 
 
 def _known_by(
@@ -327,8 +343,8 @@ def _known_by(
     observed: date | datetime | None,
     as_of_date: date,
 ) -> bool:
-    known_dates = [_calendar_date(value) for value in (recorded, observed)]
-    return any(value is not None and value <= as_of_date for value in known_dates)
+    available = _calendar_date(recorded) or _calendar_date(observed)
+    return available is not None and available <= as_of_date
 
 
 def _calendar_date(value: date | datetime | None) -> date | None:

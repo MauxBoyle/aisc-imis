@@ -172,7 +172,7 @@ def reconcile_membership_balance(
 def has_unresolved_period_evidence(member: MemberMovementContributor, start_date: date) -> bool:
     """Check unresolved evidence that can affect this period's member state."""
     return any(
-        finding.code in {"unresolved_lifecycle_evidence", "invalid_snapshot_field", "same_day_state_contradiction"}
+        finding.code in {"unresolved_lifecycle_evidence", "invalid_snapshot_field", "same_day_state_contradiction", "undated_snapshot_change"}
         and any(
             (not isinstance(entry.record, CandidateLifecycleEvent) or entry.record.event_name != "transferred")
             and (

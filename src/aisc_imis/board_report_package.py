@@ -5,8 +5,10 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-from dataclasses import dataclass, replace
-from datetime import date, timedelta
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
+from itertools import groupby
 from pathlib import Path
 
 from aisc_imis.activity_history_records import read_activity_history_records
@@ -16,8 +18,10 @@ from aisc_imis.evidence_conversion import (
     convert_activity_history_observations,
     convert_current_member_observations,
     convert_historical_snapshot_observations,
+    convert_iqa_join_dates,
     convert_membership_change_observations,
 )
+from aisc_imis.evidence_ledger import SnapshotStateObservation
 from aisc_imis.historical_snapshot_records import read_historical_snapshot_records
 from aisc_imis.lifecycle_rules import load_lifecycle_rules
 from aisc_imis.m1_membership_numbers import build_m1_membership_numbers, write_m1_csv
@@ -69,7 +73,11 @@ class BoardReportResult:
 
 
 def _hash(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for block in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _write_rows(
@@ -105,7 +113,13 @@ def _finding(
     }
 
 
-def build_board_report_package(inputs: BoardReportInputs) -> BoardReportResult:
+def _calendar_day(value: date | datetime | None) -> date | None:
+    return value.date() if isinstance(value, datetime) else value
+
+
+def build_board_report_package(
+    inputs: BoardReportInputs, progress: Callable[[str], None] | None = None
+) -> BoardReportResult:
     """Read local evidence, run the existing builders, and write an audited package."""
     if inputs.period_start > inputs.as_of_date:
         raise ValueError("period start must be on or before the as-of date")
@@ -134,6 +148,8 @@ def build_board_report_package(inputs: BoardReportInputs) -> BoardReportResult:
     if not references.is_dir():
         raise FileNotFoundError(f"reference_directory: {references}")
     reference_files = sorted(path for path in references.rglob("*") if path.is_file())
+    if progress:
+        progress("Fingerprinting inputs")
     source_hashes = {name: {"sha256": _hash(path)} for name, path in sources.items()}
     source_hashes["reference_directory"] = {
         str(path.relative_to(references)): _hash(path) for path in reference_files
@@ -146,75 +162,45 @@ def build_board_report_package(inputs: BoardReportInputs) -> BoardReportResult:
         "current_export_date": inputs.current_export_date.isoformat(),
     }
     rules = load_lifecycle_rules(references)
-    current = read_current_member_records(sources["current_csv"], references)
-    history = read_historical_snapshot_records(sources["history_csv"], references)
-    changes = read_membership_change_records(
-        sources["membership_changes_csv"], references
-    )
-    activity = read_activity_history_records(
-        sources["activity_history_csv"], references
-    )
-    adapters = {
-        "current": current,
-        "history": history,
-        "membership_changes": changes,
-        "activity_history": activity,
-    }
-    converted = (
-        convert_current_member_observations(current.observations),
-        convert_historical_snapshot_observations(history.observations),
-        convert_membership_change_observations(changes.observations),
-        convert_activity_history_observations(activity.observations),
-    )
-    # A current export is evidence observed on its export date, even when a row's
-    # Last Updated field is older. This prevents it from entering earlier views.
-    records = [
-        replace(
-            record,
-            recorded_date=inputs.current_export_date,
-            observed_date=inputs.current_export_date,
+    first_rule_date = min(rule.effective_reporting_date for rule in rules.rules)
+    if progress and inputs.as_of_date < first_rule_date:
+        progress(
+            f"Warning: lifecycle rules begin {first_rule_date}; "
+            f"the {inputs.as_of_date} as-of balance may be unresolved"
         )
-        for record in converted[0].records
-    ]
-    for group in converted[1:]:
-        records.extend(group.records)
-    ledger = build_member_evidence_ledger(records)
-    board_actions = load_board_pending_actions(sources["board_actions_json"])
-    registry = load_review_registry(sources["review_registry_json"])
-    iqa = read_new_members_iqa(sources["new_members_iqa_csv"])
-    with (references / "categories.csv").open(newline="", encoding="utf-8-sig") as file:
-        categories = tuple(row["code"] for row in csv.DictReader(file) if row["code"])
-    movement = classify_quarterly_movements(
-        ledger.entries,
-        inputs.period_start,
-        inputs.as_of_date + timedelta(days=1),
-        inputs.board_cutoff,
-        rules,
-        board_actions,
-        categories,
-        join_measures={"ACT": "M2", "ASSOC": "M3"},
-    )
-    m1 = build_m1_membership_numbers(
-        movement.operational_balance,
-        movement.opening_board_view,
-        movement.closing_board_view,
-        inputs.board_cutoff,
-    )
-    m2m3 = build_m2_m3_new_members(movement, iqa, board_actions)
-    m4 = build_m4_resignations_reinstatements(movement)
-    m5 = build_m5_expulsions(movement, board_actions)
-    reconciliation = reconcile_member_states(
-        ledger,
-        (MembershipObservation.from_historical(row) for row in history.observations),
-        (MembershipObservation.from_current(row) for row in current.observations),
-        rules,
-        current_export_date=inputs.current_export_date,
-    )
-    reviews = annotate_findings(
-        reconciliation.findings, registry, as_of=inputs.board_cutoff
-    )
     findings: list[dict[str, str]] = []
-    for name, adapter in adapters.items():
+    records = []
+    historical_observations: tuple[MembershipObservation, ...] = ()
+    current_observations: tuple[MembershipObservation, ...] = ()
+    for name, path, reader, converter in (
+        (
+            "current",
+            sources["current_csv"],
+            read_current_member_records,
+            convert_current_member_observations,
+        ),
+        (
+            "history",
+            sources["history_csv"],
+            read_historical_snapshot_records,
+            convert_historical_snapshot_observations,
+        ),
+        (
+            "membership_changes",
+            sources["membership_changes_csv"],
+            read_membership_change_records,
+            convert_membership_change_observations,
+        ),
+        (
+            "activity_history",
+            sources["activity_history_csv"],
+            read_activity_history_records,
+            convert_activity_history_observations,
+        ),
+    ):
+        if progress:
+            progress(f"Reading {name}")
+        adapter = reader(path, references)
         for issue in adapter.findings:
             ref = issue.reference
             findings.append(
@@ -234,8 +220,22 @@ def build_board_report_package(inputs: BoardReportInputs) -> BoardReportResult:
                     evidence=f"{rejection.reference.source_name}:{rejection.reference.row_reference}",
                 )
             )
-    for group in converted:
-        for issue in group.findings:
+        if name == "current":
+            current_observations = tuple(
+                MembershipObservation.from_current(row) for row in adapter.observations
+            )
+            converted = converter(
+                adapter.observations, export_date=inputs.current_export_date
+            )
+        elif name == "history":
+            historical_observations = tuple(
+                MembershipObservation.from_historical(row) for row in adapter.observations
+            )
+            converted = converter(adapter.observations)
+        else:
+            converted = converter(adapter.observations)
+        records.extend(converted.records)
+        for issue in converted.findings:
             findings.append(
                 _finding(
                     "conversion",
@@ -244,6 +244,63 @@ def build_board_report_package(inputs: BoardReportInputs) -> BoardReportResult:
                     evidence=f"{issue.reference.source_name}:{issue.reference.row_reference}",
                 )
             )
+        del adapter, converted
+    if progress:
+        progress("Building evidence ledger")
+    iqa = read_new_members_iqa(sources["new_members_iqa_csv"])
+    records.extend(convert_iqa_join_dates(iqa, inputs.current_export_date).records)
+    ledger = build_member_evidence_ledger(records)
+    del records
+    board_actions = load_board_pending_actions(sources["board_actions_json"])
+    registry = load_review_registry(sources["review_registry_json"])
+    with (references / "categories.csv").open(newline="", encoding="utf-8-sig") as file:
+        categories = tuple(row["code"] for row in csv.DictReader(file) if row["code"])
+    if progress:
+        progress("Calculating Board movements")
+    period_end = inputs.as_of_date + timedelta(days=1)
+    movement_entries = (
+        entry for entry in ledger.entries
+        if getattr(entry.record, "fact_name", None) == "join_date" or isinstance(entry.record, SnapshotStateObservation) or (
+            (effective := _calendar_day(entry.record.effective_date)) is not None
+            and effective < period_end
+        ) or (
+            (observed := _calendar_day(entry.record.observed_date)) is not None
+            and observed < period_end
+        )
+    )
+    movement = classify_quarterly_movements(
+        movement_entries,
+        inputs.period_start,
+        period_end,
+        inputs.board_cutoff,
+        rules,
+        board_actions,
+        categories,
+        join_measures={"ACT": "M2", "ASSOC": "M3"},
+    )
+    m1 = build_m1_membership_numbers(
+        movement.operational_balance,
+        movement.opening_board_view,
+        movement.closing_board_view,
+        inputs.board_cutoff,
+    )
+    m2m3 = build_m2_m3_new_members(movement, iqa, board_actions)
+    m4 = build_m4_resignations_reinstatements(movement)
+    m5 = build_m5_expulsions(movement, board_actions)
+    if progress:
+        progress("Reconciling member states")
+    reconciliation = reconcile_member_states(
+        ledger,
+        historical_observations,
+        current_observations,
+        rules,
+        current_export_date=inputs.current_export_date,
+        snapshots_already_in_evidence=True,
+    )
+    del historical_observations, current_observations
+    reviews = annotate_findings(
+        reconciliation.findings, registry, as_of=inputs.board_cutoff
+    )
     for annotation in reviews.findings:
         item = annotation.finding
         review = annotation.review
@@ -311,6 +368,8 @@ def build_board_report_package(inputs: BoardReportInputs) -> BoardReportResult:
                 )
             )
     findings.sort(key=lambda row: tuple(row.values()))
+    if progress:
+        progress("Writing report files")
     output = Path(inputs.output_directory)
     output.mkdir(parents=True, exist_ok=True)
     paths = [output / "m1_membership_numbers.csv"]
@@ -320,7 +379,19 @@ def build_board_report_package(inputs: BoardReportInputs) -> BoardReportResult:
     paths.extend(write_m5_csv(m5, output))
     paths.append(write_member_evidence_csv(ledger, output / "member_evidence.csv"))
     drilldown = []
+    ledger_groups = (
+        (key, group)
+        for key, group in groupby(ledger.entries, key=lambda entry: entry.record.subject_key)
+    )
+    ledger_group = next(ledger_groups, None)
     for member in movement.movement.contributors:
+        while ledger_group is not None and ledger_group[0] < member.subject_key:
+            ledger_group = next(ledger_groups, None)
+        member_entries = (
+            tuple(ledger_group[1])
+            if ledger_group is not None and ledger_group[0] == member.subject_key
+            else ()
+        )
         drilldown.append(
             {
                 "subject_key": member.subject_key,
@@ -330,7 +401,7 @@ def build_board_report_package(inputs: BoardReportInputs) -> BoardReportResult:
                 "closing_category": member.closing_category or "",
                 "lifecycle_actions": "; ".join(member.lifecycle_actions),
                 "evidence_ids": "; ".join(
-                    entry.record_id for entry in ledger.entries_for(member.subject_key)
+                    entry.record_id for entry in member_entries
                 ),
             }
         )

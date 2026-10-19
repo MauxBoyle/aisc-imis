@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -27,7 +28,10 @@ def main() -> None:
         "output_directory",
     ):
         parser.add_argument(f"--{name.replace('_', '-')}", required=True, type=Path)
-    result = build_board_report_package(BoardReportInputs(**vars(parser.parse_args())))
+    result = build_board_report_package(
+        BoardReportInputs(**vars(parser.parse_args())),
+        progress=lambda message: print(message, file=sys.stderr, flush=True),
+    )
     print(f"Run ID: {result.run_id}")
     print(f"Findings: {result.finding_count}")
     for path in result.output_files:

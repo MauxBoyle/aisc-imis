@@ -5,16 +5,17 @@ already-confirmed `MemberLedgerEntry` evidence. Its period is start-inclusive
 and end-exclusive: `[start_date, end_date)`. It does not read exports, match
 identities, edit a ledger, or create a report.
 
-The result keeps gross lifecycle actions (`joined`, `reinstated`, `resigned`,
-`expelled`, and inferred snapshot `exited`) separate from net population change. A join followed by a
+The result keeps dated lifecycle actions (`joined`, `reinstated`, `resigned`,
+`expelled`) separate from net population change. A join followed by a
 resignation in one period is therefore visible as two gross actions while the
 net change is zero when the opening and closing countable populations match.
 
 Member Type is reported as the **membership grouping** dimension; Category is
 a second independent dimension. A countable-to-countable change in either
 dimension creates an outgoing and incoming transfer for that dimension, with
-no total-population effect. A countable-to-uncountable snapshot change creates
-an `exited` action, not a transfer. The reviewed `transferred` rule preserves the known countability
+no total-population effect. A countable-to-uncountable snapshot difference
+produces `undated_snapshot_change` and an unresolved net change; it does not
+place an exit in that quarter. The reviewed `transferred` rule preserves the known countability
 state while recording either dimension movement.
 
 Use `EvidenceCorrection` (also available as `LedgerCorrection`) for a reviewed
@@ -28,6 +29,26 @@ Unknown opening state, unresolved evidence, repeated events which cannot alter
 state, and same-day contradictions also produce findings. The service does not
 invent movement in those cases. Examples and tests use synthetic records only;
 do not add private member evidence to documentation.
+
+Use `knowledge_cutoff` to include evidence available after the period ended.
+A supported company `Join Date` places its first join on that date, even when
+the supporting snapshot was observed later. Conflicting Join Dates produce a
+finding. Activity events use their effective date, then their transaction
+date; `dated_actions[].date_basis` records the choice. A snapshot date only
+confirms its state on that date.
+An explicit same-day reinstatement takes precedence over a Join Date. When an
+earlier snapshot confirms membership, a later Join Date is treated as a
+reinstatement. A later explicit `joined` activity is also a reinstatement when
+an earlier snapshot confirms membership. The new action takes Category and
+Member Type from evidence for the new membership; missing attributes stay
+unresolved rather than inheriting values from the previous membership. A prior
+account snapshot without confirmed membership does not
+establish that history. If the earlier exit or starting state is unknown, the
+reinstatement remains counted, an `undated_snapshot_change` finding explains
+the unknown exit, and the population balance stays incomplete.
+For source dates before the first reviewed rule version, the earliest reviewed
+taxonomy interprets the source state or event while the original effective
+date remains the movement date.
 
 ```python
 from datetime import date

@@ -97,18 +97,22 @@ def reconcile_member_states(
     rules: LifecycleRules,
     *,
     current_export_date: date,
+    snapshots_already_in_evidence: bool = False,
 ) -> MemberStateReconciliation:
     """Compare each row with evidence available before its comparison date."""
     dated = tuple(
         (item, item.observation_date) for item in historical_observations
     ) + tuple((item, current_export_date) for item in current_observations)
-    records = [entry.record for entry in evidence.entries]
-    for item, when in dated:
+    for item, _ in dated:
         if not item.subject_key.strip():
             raise ValueError("Observation subject_key must be nonblank.")
-        records.extend(_as_snapshot_records(item, when))
-    ledger = build_member_evidence_ledger(records)
-    entries = unique(ledger.entries)
+    if snapshots_already_in_evidence:
+        entries = unique(evidence.entries)
+    else:
+        records = [entry.record for entry in evidence.entries]
+        for item, when in dated:
+            records.extend(_as_snapshot_records(item, when))
+        entries = unique(build_member_evidence_ledger(records).entries)
     by_subject: dict[str, list[MemberLedgerEntry]] = defaultdict(list)
     targets: dict[tuple[str, SourceReference, date | None], list[MemberLedgerEntry]] = (
         defaultdict(list)

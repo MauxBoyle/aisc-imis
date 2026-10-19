@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import csv
 from dataclasses import asdict, dataclass, fields
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
-from aisc_imis.evidence_ledger import CandidateLifecycleEvent
+from aisc_imis.evidence_ledger import (
+    CandidateLifecycleEvent,
+    ObservedFact,
+    SnapshotStateObservation,
+)
 from aisc_imis.lifecycle_period_movements import MovementFinding
 from aisc_imis.quarterly_board_movements import (
     QuarterlyMovementResult,
@@ -26,6 +30,7 @@ class M4MovementRow:
     member_type: str | None
     operational_status: str
     ledger_evidence_refs: str
+    date_basis: str = "event_effective_date"
 
 
 @dataclass(frozen=True)
@@ -47,6 +52,10 @@ def _evidence_refs(movement: QuarterlyMovementRow) -> str:
             f"{source.source_name}:{source.row_reference}" for source in sources
         )
     return "; ".join(sorted(refs))
+
+
+def _day(value: date | datetime) -> date:
+    return value.date() if isinstance(value, datetime) else value
 
 
 def build_m4_resignations_reinstatements(
@@ -76,11 +85,47 @@ def build_m4_resignations_reinstatements(
             )
             continue
         seen.add(key)
-        if not any(
+        explicit_event = any(
             isinstance(entry.record, CandidateLifecycleEvent)
             and entry.record.event_name == movement.action
             for entry in movement.evidence
-        ):
+        )
+        prior_member_join_event = (
+            movement.action == "reinstated"
+            and any(
+                isinstance(entry.record, CandidateLifecycleEvent)
+                and entry.record.event_name == "joined"
+                for entry in movement.evidence
+            )
+            and any(
+                contributor.subject_key == movement.subject_key
+                and any(
+                    action.action == "reinstated"
+                    and action.effective_date == movement.effective_date
+                    for action in contributor.dated_actions
+                )
+                and any(
+                    isinstance(entry.record, SnapshotStateObservation)
+                    and entry.record.state_name == "is_member=True"
+                    and _day(entry.record.effective_date or entry.record.observed_date) < movement.effective_date
+                    for entry in contributor.supporting_evidence
+                    if entry.record.effective_date or entry.record.observed_date
+                )
+                for contributor in movements.movement.contributors
+            )
+        )
+        prior_member_join = (
+            movement.action == "reinstated"
+            and movement.date_basis == "join_date"
+            and any(isinstance(entry.record, ObservedFact) and entry.record.fact_name == "join_date" for entry in movement.evidence)
+            and any(
+                isinstance(entry.record, SnapshotStateObservation)
+                and _day(entry.record.observed_date or entry.record.effective_date) < movement.effective_date
+                for entry in movement.evidence
+                if entry.record.observed_date or entry.record.effective_date
+            )
+        )
+        if not (explicit_event or prior_member_join or prior_member_join_event):
             findings.append(
                 MovementFinding(
                     "m4_missing_state_change_evidence",
@@ -100,6 +145,7 @@ def build_m4_resignations_reinstatements(
                 movement.member_type,
                 "former_member" if movement.action == "resigned" else "current_member",
                 _evidence_refs(movement),
+                movement.date_basis,
             )
         )
 

@@ -246,8 +246,10 @@ The [M2/M3 new members guide](docs/m2-m3-new-members.md) shows how to turn
 classified `ACT` and `ASSOC` joins into separate CSV lists. Use
 `read_new_members_iqa()` for Board display fields, then
 `build_m2_m3_new_members()` and `write_m2_m3_csv()`. Selection comes from the
-classified effective date and report cutoff; the IQA Join Date is display
-evidence. Missing or conflicting exact-ID IQA matches remain visible as
+classified effective date and report cutoff. A parseable IQA `Join Date` can
+date a first join when a countable company snapshot supports that iMIS ID;
+the current export date marks when that IQA evidence became available.
+Missing or conflicting exact-ID IQA matches remain visible as
 findings, and both row counts reconcile to classified joins. The Q3 2026 IQA
 sample has 19 `ACT` and 22 `ASSOC` source rows; these are not yet verified
 movement totals. Write operational CSVs under ignored `reports/`.
@@ -256,8 +258,12 @@ The [M4 resignations and reinstatements guide](docs/m4-resignations-reinstatemen
 shows how to select counted M4 actions from `QuarterlyMovementResult` and write
 two CSV lists under ignored `reports/`. Effective dates place actions in the
 quarter; recorded dates and the report cutoff control which evidence is known.
-Rows keep Category and Member Type at the action, resulting operational status,
-and ledger source references. The builder checks list counts against classified
+Rows use Category and Member Type supported for the action's membership; missing
+new-membership attributes stay blank. A later Join Date or explicit `joined`
+activity after confirmed prior membership counts as a reinstatement. An unknown
+intervening exit remains a finding and leaves the population balance incomplete.
+M4 accepts that source-backed reclassification. Rows also include resulting
+operational status and ledger source references. The builder checks list counts against classified
 M4 counts and the balance terms, and returns unresolved evidence or mismatches
 as review findings.
 
@@ -471,7 +477,7 @@ The reviewed [versioned lifecycle rules](docs/lifecycle-rules.md) provide a
 small, pure Python service for deciding countability from explicitly supplied
 observations and a reporting date. Its version-controlled configuration is
 `data/reference/lifecycle-rules.csv`; the first provisional version applies on
-and after 2026-10-15. It returns structured findings instead of guessing about
+and after 2026-06-30. It returns structured findings instead of guessing about
 unknown, missing, or conflicting inputs. It does not read exports, join people,
 or write reports, and `Status` remains outside membership decisions until that
 policy is separately approved.
@@ -494,6 +500,12 @@ independent, zero-population-impact dimensions. Reviewed corrections are
 explicit, immutable audit instructions: they replace evidence only for a given
 analysis and never count as lifecycle actions. The API and its examples use
 synthetic evidence; private member rows stay out of documentation.
+The first supported `Join Date` and later dated activity events place movements.
+Confirmed prior membership makes a later explicit `joined` event a reinstatement.
+New-membership attributes need their own evidence; old values are not inherited.
+Snapshots confirm states on their observation dates. An undated exit remains
+uncertain and creates no quarter-specific M4 or M5 row. Report dates and
+knowledge cutoffs are separate, and CSV rows show their selected `date_basis`.
 
 The [period membership balance API](docs/period-membership-balance.md) compares
 opening count plus confirmed actions, Category transfers, and explicit reviewed

@@ -33,7 +33,7 @@ Status, and countability. A missing observed Member Type or Status gets a
 `missing_observed_state_field` finding. Unknown observed countability gets the
 rule evaluator's finding, such as `missing_is_member` or
 `no_applicable_rule_version`. Unknown expected countability also gets a
-finding when earlier evidence exists. Dates before 2026-10-15 have no
+finding when earlier evidence exists. Dates before 2026-06-30 have no
 rule-based countability conclusion and are unassessable.
 
 Each immutable comparison returns `match`, `discrepancy`, or `unassessable`.

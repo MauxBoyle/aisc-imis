@@ -1,5 +1,8 @@
 # M5 pending proposals and completed expulsions
 
+Each output row includes `date_basis` to distinguish event effective,
+transaction, and Board dates.
+
 `build_m5_expulsions(movements, board_actions)` takes one `QuarterlyMovementResult` from `classify_quarterly_movements()` and the same validated `BoardPendingActions` used by that classifier. It returns `pending_proposals`, `completed_expulsions`, `counts`, and `findings`. Selection does not write files.
 
 The quarter is `[start_date, end_date)`. Pending proposals were proposed during that quarter and still have status `proposed` at the inclusive report cutoff. A proposal has no completed historical event. Rejected and withdrawn expulsion actions appear as findings. Completed rows come from counted M5 classifier movements: eligible Board approvals can count before iMIS updates, and operational expulsions count when their evidence is visible by the report cutoff.

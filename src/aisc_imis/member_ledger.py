@@ -23,6 +23,7 @@ TABULAR_COLUMNS = (
     "recorded_date",
     "observed_date",
     "interpretation_status",
+    "date_basis",
     "fact_name",
     "fact_value",
     "source_references",
@@ -75,12 +76,9 @@ def build_member_evidence_ledger(
     ``subject_key`` and sorted by effective, recorded, and observed date.
     Missing dates sort last for each date role.
     """
-    typed_records = tuple(records)
     entries = tuple(
-        MemberLedgerEntry(record_id=_record_id(row), record=record)
-        for record, row in zip(
-            typed_records, to_tabular_rows(typed_records), strict=True
-        )
+        MemberLedgerEntry(record_id=_record_id(to_tabular_rows((record,))[0]), record=record)
+        for record in records
     )
     ordered_entries = tuple(
         sorted(

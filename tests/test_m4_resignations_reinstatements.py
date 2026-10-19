@@ -9,6 +9,7 @@ from aisc_imis.board_pending_actions import BoardPendingActions
 from aisc_imis.evidence_ledger import (
     CandidateLifecycleEvent,
     InterpretationStatus,
+    ObservedFact,
     SnapshotStateObservation,
 )
 from aisc_imis.lifecycle_rules import load_lifecycle_rules
@@ -24,7 +25,7 @@ START, END = date(2027, 1, 1), date(2027, 4, 1)
 RULES = load_lifecycle_rules(Path(__file__).parents[1] / "data/reference")
 
 
-def snapshot(key, when, category="A", member_type="ACT"):
+def snapshot(key, when, category="A", member_type="ACT", is_company=False):
     return tuple(
         SnapshotStateObservation(
             key,
@@ -37,12 +38,13 @@ def snapshot(key, when, category="A", member_type="ACT"):
             ("member_type", member_type),
             ("category", category),
             ("is_member", True),
-            ("is_company", False),
+            ("is_company", is_company),
         )
+        if value is not None
     )
 
 
-def event(key, action, when, *, recorded=None, category=None, status=None):
+def event(key, action, when, *, recorded=None, category=None, member_type=None, status=None):
     return CandidateLifecycleEvent(
         key,
         action,
@@ -51,6 +53,7 @@ def event(key, action, when, *, recorded=None, category=None, status=None):
         effective_date=when,
         recorded_date=recorded or when,
         category=category,
+        member_type=member_type,
         interpretation_status=status or InterpretationStatus.VERIFIED,
     )
 
@@ -90,6 +93,140 @@ def test_resignation_and_reinstatement_in_one_period_reconcile():
     assert movements.operational_balance.overall.movements["reinstated"] == 1
 
 
+def test_join_date_with_prior_membership_exports_reinstatement():
+    when = date(2027, 3, 1)
+    movements = classify(
+        (
+            *snapshot("001", date(2026, 12, 31), is_company=True),
+            event("001", "resigned", date(2027, 2, 1)),
+            ObservedFact("001", "join_date", when.isoformat(), SourceReference("synthetic.csv", "join-date"), recorded_date=date(2027, 4, 10)),
+            *snapshot("001", date(2027, 4, 10), is_company=True),
+        )
+    )
+
+    result = build_m4_resignations_reinstatements(movements)
+
+    assert result.counts == {"resigned": 1, "reinstated": 1}
+    assert result.reinstatements[0].effective_date == when
+    assert result.reinstatements[0].date_basis == "join_date"
+
+
+def test_join_date_reinstatement_uses_new_membership_attributes_and_csv(tmp_path):
+    when = date(2027, 3, 1)
+    records = (
+        *snapshot("001", date(2026, 12, 31), is_company=True),
+        event("001", "resigned", date(2027, 2, 1)),
+        ObservedFact("001", "join_date", when.isoformat(), SourceReference("synthetic.csv", "join-date"), recorded_date=date(2027, 4, 10)),
+        *snapshot("001", date(2027, 4, 10), category="B", member_type="ASSOC", is_company=True),
+    )
+    movements = classify(records)
+    result = build_m4_resignations_reinstatements(movements)
+    assert [(row.action, row.measure, row.category, row.member_type) for row in movements.counted] == [
+        ("resigned", "M4", "A", "ACT"),
+        ("reinstated", "M4", "B", "ASSOC"),
+    ]
+    assert result.counts == {"resigned": 1, "reinstated": 1}
+    assert movements.membership_grouping_transfers == ()
+    assert movements.category_transfers == ()
+    _, path = write_m4_csv(result, tmp_path)
+    with path.open(newline="", encoding="utf-8") as file:
+        assert [(row["category"], row["member_type"]) for row in csv.DictReader(file)] == [("B", "ASSOC")]
+
+
+def test_join_date_reinstatement_does_not_inherit_old_attributes(tmp_path):
+    when = date(2027, 3, 1)
+    records = (
+        *snapshot("001", date(2026, 12, 31), is_company=True),
+        event("001", "resigned", date(2027, 2, 1)),
+        ObservedFact("001", "join_date", when.isoformat(), SourceReference("synthetic.csv", "join-date"), recorded_date=date(2027, 4, 10)),
+        *snapshot("001", date(2027, 4, 10), category=None, member_type=None, is_company=True),
+    )
+    movements = classify(records)
+    result = build_m4_resignations_reinstatements(movements)
+    assert result.counts == {"resigned": 1, "reinstated": 1}
+    assert (result.reinstatements[0].category, result.reinstatements[0].member_type) == (None, None)
+    assert (movements.movement.contributors[0].closing_category, movements.movement.contributors[0].closing_member_type) == (None, None)
+    _, path = write_m4_csv(result, tmp_path)
+    with path.open(newline="", encoding="utf-8") as file:
+        row = next(csv.DictReader(file))
+    assert (row["category"], row["member_type"]) == ("", "")
+
+
+def test_partial_new_snapshot_supplies_only_its_known_attribute():
+    when = date(2027, 3, 1)
+    records = (
+        *snapshot("001", date(2026, 12, 31), is_company=True),
+        event("001", "resigned", date(2027, 2, 1)),
+        ObservedFact("001", "join_date", when.isoformat(), SourceReference("synthetic.csv", "join-date"), recorded_date=date(2027, 4, 10)),
+        *snapshot("001", date(2027, 4, 10), category="B", member_type=None, is_company=True),
+    )
+    result = build_m4_resignations_reinstatements(classify(records))
+    assert result.counts == {"resigned": 1, "reinstated": 1}
+    assert (result.reinstatements[0].category, result.reinstatements[0].member_type) == ("B", None)
+
+
+def test_prior_member_explicit_join_is_reinstatement_with_undated_exit():
+    when = date(2027, 3, 1)
+    records = (
+        *snapshot("001", date(2026, 12, 31)),
+        event("001", "joined", when, category="B", member_type="ASSOC"),
+    )
+    movements = classify(records)
+    result = build_m4_resignations_reinstatements(movements)
+    assert [(row.action, row.measure) for row in movements.counted] == [("reinstated", "M4")]
+    assert result.counts == {"resigned": 0, "reinstated": 1}
+    assert (result.reinstatements[0].category, result.reinstatements[0].member_type) == ("B", "ASSOC")
+    assert movements.operational_balance.overall.difference is None
+    assert "undated_snapshot_change" in {finding.code for finding in result.findings}
+
+
+def test_prior_member_explicit_join_obeys_period_and_report_cutoff():
+    records = (
+        *snapshot("001", date(2026, 12, 31)),
+        event("001", "joined", END, recorded=date(2027, 4, 10)),
+    )
+    assert build_m4_resignations_reinstatements(classify(records)).reinstatements == ()
+    in_period = (
+        *snapshot("001", date(2026, 12, 31)),
+        event("001", "joined", date(2027, 3, 31), recorded=date(2027, 4, 10)),
+    )
+    assert build_m4_resignations_reinstatements(classify(in_period, date(2027, 4, 5))).reinstatements == ()
+    assert len(build_m4_resignations_reinstatements(classify(in_period)).reinstatements) == 1
+
+
+def test_prior_membership_without_dated_exit_keeps_m4_balance_incomplete():
+    when = date(2027, 3, 1)
+    movements = classify(
+        (
+            *snapshot("001", date(2026, 12, 31), is_company=True),
+            ObservedFact("001", "join_date", when.isoformat(), SourceReference("synthetic.csv", "join-date"), recorded_date=date(2027, 4, 10)),
+            *snapshot("001", date(2027, 4, 10), is_company=True),
+        )
+    )
+
+    result = build_m4_resignations_reinstatements(movements)
+
+    assert result.counts == {"resigned": 0, "reinstated": 1}
+    assert movements.operational_balance.overall.difference is None
+
+
+def test_explicit_reinstatement_with_same_day_join_date_exports_to_m4():
+    when = date(2027, 3, 1)
+    movements = classify(
+        (
+            ObservedFact("001", "join_date", when.isoformat(), SourceReference("synthetic.csv", "join-date"), recorded_date=date(2027, 4, 10)),
+            event("001", "reinstated", when),
+            *snapshot("001", date(2027, 4, 10), is_company=True),
+        )
+    )
+
+    result = build_m4_resignations_reinstatements(movements)
+
+    assert result.counts == {"resigned": 0, "reinstated": 1}
+    assert result.reinstatements[0].date_basis == "event_effective_date"
+    assert movements.operational_balance.overall.difference is None
+
+
 def test_backdated_action_obeys_recorded_cutoff():
     records = (
         *snapshot("001", date(2026, 12, 31)),
@@ -115,7 +252,7 @@ def test_category_transfer_stays_separate_and_action_category_is_retained():
     assert len(movements.category_transfers) == 1
     assert [row.category for row in (*result.resignations, *result.reinstatements)] == [
         "B",
-        "B",
+        None,
     ]
     assert result.counts == {"resigned": 1, "reinstated": 1}
 

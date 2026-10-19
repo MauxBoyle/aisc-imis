@@ -42,11 +42,11 @@ def test_current_approved_types_are_countable(rules, member_type, is_company):
             is_member=True,
             status="S",  # Status is deliberately not a membership decision input.
         ),
-        date(2026, 10, 15),
+        date(2026, 6, 30),
         rules,
     )
 
-    assert decision.rule_version == "2026-10-15"
+    assert decision.rule_version == "2026-06-30"
     assert decision.operational_state == "current_member"
     assert decision.countability is Countability.COUNTABLE
     assert decision.findings == ()
@@ -56,7 +56,7 @@ def test_current_approved_types_are_countable(rules, member_type, is_company):
 def test_former_and_potential_types_are_not_countable(rules, member_type):
     decision = evaluate_countability(
         LifecycleObservation(member_type=member_type, is_company=False, is_member=True),
-        date(2026, 10, 15),
+        date(2026, 6, 30),
         rules,
     )
 
@@ -74,7 +74,7 @@ def test_former_and_potential_types_are_not_countable(rules, member_type):
     ],
 )
 def test_unapproved_or_conflicting_state_combinations_are_findings(rules, observation):
-    decision = evaluate_countability(observation, date(2026, 10, 15), rules)
+    decision = evaluate_countability(observation, date(2026, 6, 30), rules)
 
     assert decision.countability is Countability.UNKNOWN
     assert decision.findings
@@ -92,7 +92,7 @@ def test_unapproved_or_conflicting_state_combinations_are_findings(rules, observ
 )
 def test_reviewed_events_have_configured_effects(rules, event_name, effect, target_state):
     decision = evaluate_countability(
-        LifecycleObservation(event_name=event_name), date(2026, 10, 15), rules
+        LifecycleObservation(event_name=event_name), date(2026, 6, 30), rules
     )
 
     assert decision.transition_effect == effect
@@ -102,7 +102,7 @@ def test_reviewed_events_have_configured_effects(rules, event_name, effect, targ
 
 def test_unknown_event_is_a_finding(rules):
     decision = evaluate_countability(
-        LifecycleObservation(event_name="renewed"), date(2026, 10, 15), rules
+        LifecycleObservation(event_name="renewed"), date(2026, 6, 30), rules
     )
 
     assert decision.countability is Countability.UNKNOWN
@@ -112,23 +112,23 @@ def test_unknown_event_is_a_finding(rules):
 def test_rule_version_starts_on_its_inclusive_effective_date(rules):
     on_boundary = evaluate_countability(
         LifecycleObservation(member_type="ACT", is_company=True, is_member=True),
-        date(2026, 10, 15),
+        date(2026, 6, 30),
         rules,
     )
     before_boundary = evaluate_countability(
         LifecycleObservation(member_type="ACT", is_company=True, is_member=True),
-        date(2026, 10, 14),
+        date(2026, 6, 29),
         rules,
     )
 
-    assert on_boundary.rule_version == "2026-10-15"
+    assert on_boundary.rule_version == "2026-06-30"
     assert before_boundary.rule_version is None
     assert before_boundary.countability is Countability.UNKNOWN
     assert before_boundary.findings[0].code == "no_applicable_rule_version"
 
 
 def test_loader_rejects_incomplete_configuration(tmp_path):
-    (tmp_path / "lifecycle-rules.csv").write_text("rule_version\n2026-10-15\n")
+    (tmp_path / "lifecycle-rules.csv").write_text("rule_version\n2026-06-30\n")
 
     with pytest.raises(ValueError, match="missing required columns"):
         load_lifecycle_rules(tmp_path)

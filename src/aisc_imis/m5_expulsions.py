@@ -33,6 +33,7 @@ class M5ExpulsionRow:
     operational_history: str
     board_evidence_refs: str
     lifecycle_evidence_refs: str
+    date_basis: str = "event_effective_date"
 
 
 @dataclass(frozen=True)
@@ -147,6 +148,7 @@ def build_m5_expulsions(
                     "not_recorded",
                     _board_refs(visible),
                     "",
+                    "board_effective_date" if latest.effective_date else "board_status_date",
                 )
             )
         elif latest.status in {ActionStatus.REJECTED, ActionStatus.WITHDRAWN}:
@@ -228,6 +230,7 @@ def build_m5_expulsions(
                 "recorded" if operational else "not_recorded",
                 _board_refs(visible) if visible else movement.source_document_ref or "",
                 _refs(movement),
+                movement.date_basis,
             )
         )
 
