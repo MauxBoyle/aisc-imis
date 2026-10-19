@@ -261,7 +261,7 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
                     actions.append(event_point.event_name)
                     action_category = next_profile.category if next_profile.countability is Countability.COUNTABLE else profile.category
                     action_member_type = next_profile.member_type if next_profile.countability is Countability.COUNTABLE else profile.member_type
-                    basis = "join_date" if any(getattr(point.entry.record, "fact_name", None) == "join_date" for point in day) else event_point.entry.record.date_basis
+                    basis = "join_date" if getattr(event_point.entry.record, "fact_name", None) == "join_date" else event_point.entry.record.date_basis
                     dated_actions.append(DatedLifecycleAction(event_point.event_name, when, action_category, tuple(point.entry for point in day), action_member_type, basis))
             elif (
                 profile.countability is Countability.COUNTABLE
@@ -324,17 +324,6 @@ def _points(entries: tuple[MemberLedgerEntry, ...], end: date, rules: LifecycleR
     snapshot_groups: dict[tuple[object, ...], list[MemberLedgerEntry]] = defaultdict(list)
     selection = select_first_join(entries, rules, knowledge_cutoff or end - timedelta(days=1))
     findings.extend(MovementFinding(code, "Join Date needs review.", selection.evidence) for code in selection.findings)
-    if selection.effective_date is not None and selection.effective_date < end:
-        supporter = next((item for item in selection.evidence if isinstance(item.record, SnapshotStateObservation) and item.record.state_name.startswith("member_type=")), None)
-        category = next((item.record.state_name.partition("=")[2] for item in selection.evidence if isinstance(item.record, SnapshotStateObservation) and item.record.state_name.startswith("category=")), None)
-        if supporter is not None:
-            member_type = supporter.record.state_name.partition("=")[2]
-            join_entry = next(item for item in selection.evidence if getattr(item.record, "fact_name", None) == "join_date")
-            output[selection.effective_date].append(_Point(selection.effective_date, _Profile(Countability.COUNTABLE, member_type, category), "joined", join_entry))
-            output[selection.effective_date].extend(
-                _Point(selection.effective_date, _Profile(Countability.COUNTABLE, member_type, category), None, item)
-                for item in selection.evidence if item is not join_entry
-            )
     for entry in entries:
         record = entry.record
         if isinstance(record, SnapshotStateObservation):
@@ -372,6 +361,29 @@ def _points(entries: tuple[MemberLedgerEntry, ...], end: date, rules: LifecycleR
             continue
         profile = _Profile(decision.countability, values.get("member_type"), values.get("category"))
         output[when].extend(_Point(when, profile, None, entry) for entry in grouped)
+    if selection.effective_date is not None and selection.effective_date < end:
+        when = selection.effective_date
+        supporter = next((item for item in selection.evidence if isinstance(item.record, SnapshotStateObservation) and item.record.state_name.startswith("member_type=")), None)
+        category = next((item.record.state_name.partition("=")[2] for item in selection.evidence if isinstance(item.record, SnapshotStateObservation) and item.record.state_name.startswith("category=")), None)
+        if supporter is not None:
+            member_type = supporter.record.state_name.partition("=")[2]
+            join_entry = next(item for item in selection.evidence if getattr(item.record, "fact_name", None) == "join_date")
+            explicit_join = any(
+                isinstance(point.entry.record, CandidateLifecycleEvent)
+                and point.event_name in {"joined", "reinstated"}
+                for point in output[when]
+            )
+            prior_member = any(
+                earlier < when
+                and any(isinstance(point.entry.record, SnapshotStateObservation) and point.profile is not None and point.profile.countability is Countability.COUNTABLE for point in day)
+                for earlier, day in output.items()
+            )
+            action = None if explicit_join else "reinstated" if prior_member else "joined"
+            output[when].append(_Point(when, _Profile(Countability.COUNTABLE, member_type, category), action, join_entry))
+            output[when].extend(
+                _Point(when, _Profile(Countability.COUNTABLE, member_type, category), None, item)
+                for item in selection.evidence if item is not join_entry
+            )
     return output, findings
 
 

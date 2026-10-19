@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import csv
 from dataclasses import asdict, dataclass, fields
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
-from aisc_imis.evidence_ledger import CandidateLifecycleEvent
+from aisc_imis.evidence_ledger import (
+    CandidateLifecycleEvent,
+    ObservedFact,
+    SnapshotStateObservation,
+)
 from aisc_imis.lifecycle_period_movements import MovementFinding
 from aisc_imis.quarterly_board_movements import (
     QuarterlyMovementResult,
@@ -50,6 +54,10 @@ def _evidence_refs(movement: QuarterlyMovementRow) -> str:
     return "; ".join(sorted(refs))
 
 
+def _day(value: date | datetime) -> date:
+    return value.date() if isinstance(value, datetime) else value
+
+
 def build_m4_resignations_reinstatements(
     movements: QuarterlyMovementResult,
 ) -> M4ResignationsReinstatements:
@@ -77,11 +85,23 @@ def build_m4_resignations_reinstatements(
             )
             continue
         seen.add(key)
-        if not any(
+        explicit_event = any(
             isinstance(entry.record, CandidateLifecycleEvent)
             and entry.record.event_name == movement.action
             for entry in movement.evidence
-        ):
+        )
+        prior_member_join = (
+            movement.action == "reinstated"
+            and movement.date_basis == "join_date"
+            and any(isinstance(entry.record, ObservedFact) and entry.record.fact_name == "join_date" for entry in movement.evidence)
+            and any(
+                isinstance(entry.record, SnapshotStateObservation)
+                and _day(entry.record.observed_date or entry.record.effective_date) < movement.effective_date
+                for entry in movement.evidence
+                if entry.record.observed_date or entry.record.effective_date
+            )
+        )
+        if not (explicit_event or prior_member_join):
             findings.append(
                 MovementFinding(
                     "m4_missing_state_change_evidence",

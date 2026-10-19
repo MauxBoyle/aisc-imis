@@ -88,3 +88,49 @@ def test_conflicting_join_dates_are_findings_without_a_chosen_join():
     q3 = result(records, date(2026, 7, 1), date(2026, 10, 1), date(2026, 10, 15))
     assert q3.gross_lifecycle_actions == {}
     assert any(item.code == "conflicting_join_dates" for item in q3.findings)
+
+
+def test_explicit_reinstatement_overrides_same_day_join_date():
+    when = date(2026, 9, 16)
+    records = (
+        *snapshot("FACT", date(2026, 8, 1), "former"),
+        join(when, date(2026, 10, 15)),
+        event("reinstated", when, date(2026, 9, 17)),
+        *snapshot("ACT", date(2026, 10, 15), "current"),
+    )
+
+    q3 = result(records, date(2026, 7, 1), date(2026, 10, 1), date(2026, 10, 15))
+
+    assert q3.gross_lifecycle_actions == {"reinstated": 1}
+    assert q3.contributors[0].dated_actions[0].date_basis == "event_effective_date"
+    assert any(
+        isinstance(entry.record, CandidateLifecycleEvent) and entry.record.event_name == "reinstated"
+        for entry in q3.contributors[0].dated_actions[0].supporting_evidence
+    )
+
+
+def test_earlier_member_snapshot_makes_later_join_date_a_reinstatement():
+    when = date(2026, 9, 16)
+    records = (
+        *snapshot("ACT", date(2026, 6, 1), "earlier-member"),
+        event("resigned", date(2026, 8, 1), date(2026, 8, 2), "resigned"),
+        join(when, date(2026, 10, 15)),
+        *snapshot("ACT", date(2026, 10, 15), "current"),
+    )
+
+    q3 = result(records, date(2026, 7, 1), date(2026, 10, 1), date(2026, 10, 15))
+
+    assert q3.gross_lifecycle_actions == {"resigned": 1, "reinstated": 1}
+    assert q3.contributors[0].dated_actions[-1].date_basis == "join_date"
+
+
+def test_earlier_nonmember_account_does_not_make_join_a_reinstatement():
+    records = (
+        *snapshot("FACT", date(2026, 6, 1), "earlier-account"),
+        join(date(2026, 9, 16), date(2026, 10, 15)),
+        *snapshot("ACT", date(2026, 10, 15), "current"),
+    )
+
+    q3 = result(records, date(2026, 7, 1), date(2026, 10, 1), date(2026, 10, 15))
+
+    assert q3.gross_lifecycle_actions == {"joined": 1}

@@ -9,6 +9,7 @@ from aisc_imis.board_pending_actions import BoardPendingActions
 from aisc_imis.evidence_ledger import (
     CandidateLifecycleEvent,
     InterpretationStatus,
+    ObservedFact,
     SnapshotStateObservation,
 )
 from aisc_imis.lifecycle_rules import load_lifecycle_rules
@@ -24,7 +25,7 @@ START, END = date(2027, 1, 1), date(2027, 4, 1)
 RULES = load_lifecycle_rules(Path(__file__).parents[1] / "data/reference")
 
 
-def snapshot(key, when, category="A", member_type="ACT"):
+def snapshot(key, when, category="A", member_type="ACT", is_company=False):
     return tuple(
         SnapshotStateObservation(
             key,
@@ -37,7 +38,7 @@ def snapshot(key, when, category="A", member_type="ACT"):
             ("member_type", member_type),
             ("category", category),
             ("is_member", True),
-            ("is_company", False),
+            ("is_company", is_company),
         )
     )
 
@@ -88,6 +89,41 @@ def test_resignation_and_reinstatement_in_one_period_reconcile():
     assert "synthetic.csv:001-resigned" in result.resignations[0].ledger_evidence_refs
     assert movements.operational_balance.overall.movements["resigned"] == 1
     assert movements.operational_balance.overall.movements["reinstated"] == 1
+
+
+def test_join_date_with_prior_membership_exports_reinstatement():
+    when = date(2027, 3, 1)
+    movements = classify(
+        (
+            *snapshot("001", date(2026, 12, 31), is_company=True),
+            event("001", "resigned", date(2027, 2, 1)),
+            ObservedFact("001", "join_date", when.isoformat(), SourceReference("synthetic.csv", "join-date"), recorded_date=date(2027, 4, 10)),
+            *snapshot("001", date(2027, 4, 10), is_company=True),
+        )
+    )
+
+    result = build_m4_resignations_reinstatements(movements)
+
+    assert result.counts == {"resigned": 1, "reinstated": 1}
+    assert result.reinstatements[0].effective_date == when
+    assert result.reinstatements[0].date_basis == "join_date"
+
+
+def test_explicit_reinstatement_with_same_day_join_date_exports_to_m4():
+    when = date(2027, 3, 1)
+    movements = classify(
+        (
+            *snapshot("001", date(2026, 12, 31), member_type="FACT", is_company=True),
+            ObservedFact("001", "join_date", when.isoformat(), SourceReference("synthetic.csv", "join-date"), recorded_date=date(2027, 4, 10)),
+            event("001", "reinstated", when),
+            *snapshot("001", date(2027, 4, 10), is_company=True),
+        )
+    )
+
+    result = build_m4_resignations_reinstatements(movements)
+
+    assert result.counts == {"resigned": 0, "reinstated": 1}
+    assert result.reinstatements[0].date_basis == "event_effective_date"
 
 
 def test_backdated_action_obeys_recorded_cutoff():
