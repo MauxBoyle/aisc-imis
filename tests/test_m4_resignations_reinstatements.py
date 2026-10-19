@@ -109,11 +109,26 @@ def test_join_date_with_prior_membership_exports_reinstatement():
     assert result.reinstatements[0].date_basis == "join_date"
 
 
+def test_prior_membership_without_dated_exit_keeps_m4_balance_incomplete():
+    when = date(2027, 3, 1)
+    movements = classify(
+        (
+            *snapshot("001", date(2026, 12, 31), is_company=True),
+            ObservedFact("001", "join_date", when.isoformat(), SourceReference("synthetic.csv", "join-date"), recorded_date=date(2027, 4, 10)),
+            *snapshot("001", date(2027, 4, 10), is_company=True),
+        )
+    )
+
+    result = build_m4_resignations_reinstatements(movements)
+
+    assert result.counts == {"resigned": 0, "reinstated": 1}
+    assert movements.operational_balance.overall.difference is None
+
+
 def test_explicit_reinstatement_with_same_day_join_date_exports_to_m4():
     when = date(2027, 3, 1)
     movements = classify(
         (
-            *snapshot("001", date(2026, 12, 31), member_type="FACT", is_company=True),
             ObservedFact("001", "join_date", when.isoformat(), SourceReference("synthetic.csv", "join-date"), recorded_date=date(2027, 4, 10)),
             event("001", "reinstated", when),
             *snapshot("001", date(2027, 4, 10), is_company=True),
@@ -124,6 +139,7 @@ def test_explicit_reinstatement_with_same_day_join_date_exports_to_m4():
 
     assert result.counts == {"resigned": 0, "reinstated": 1}
     assert result.reinstatements[0].date_basis == "event_effective_date"
+    assert movements.operational_balance.overall.difference is None
 
 
 def test_backdated_action_obeys_recorded_cutoff():

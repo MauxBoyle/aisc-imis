@@ -254,10 +254,18 @@ def _analyze_member(subject_key: str, entries: tuple[MemberLedgerEntry, ...], st
             event_point = next((point for point in day if point.event_name in {"joined", "reinstated", "resigned", "expelled"}), None)
             if event_point is not None:
                 if profile.countability is Countability.UNKNOWN and event_point.event_name != "joined":
-                    findings.append(MovementFinding("unknown_starting_state", "A lifecycle event cannot be counted without a known preceding state.", (event_point.entry,)))
+                    findings.append(MovementFinding("unknown_starting_state", "The preceding countability state is unknown.", (event_point.entry,)))
+                    count_action = event_point.event_name == "reinstated"
                 elif next_profile.countability == profile.countability:
-                    findings.append(MovementFinding("repeated_lifecycle_event", "The event cannot represent a state change.", (event_point.entry,)))
+                    if event_point.event_name == "reinstated":
+                        findings.append(MovementFinding("undated_snapshot_change", "Reinstatement confirms an earlier exit, but does not date it.", (event_point.entry,)))
+                        count_action = True
+                    else:
+                        findings.append(MovementFinding("repeated_lifecycle_event", "The event cannot represent a state change.", (event_point.entry,)))
+                        count_action = False
                 else:
+                    count_action = True
+                if count_action:
                     actions.append(event_point.event_name)
                     action_category = next_profile.category if next_profile.countability is Countability.COUNTABLE else profile.category
                     action_member_type = next_profile.member_type if next_profile.countability is Countability.COUNTABLE else profile.member_type

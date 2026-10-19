@@ -93,7 +93,6 @@ def test_conflicting_join_dates_are_findings_without_a_chosen_join():
 def test_explicit_reinstatement_overrides_same_day_join_date():
     when = date(2026, 9, 16)
     records = (
-        *snapshot("FACT", date(2026, 8, 1), "former"),
         join(when, date(2026, 10, 15)),
         event("reinstated", when, date(2026, 9, 17)),
         *snapshot("ACT", date(2026, 10, 15), "current"),
@@ -102,6 +101,8 @@ def test_explicit_reinstatement_overrides_same_day_join_date():
     q3 = result(records, date(2026, 7, 1), date(2026, 10, 1), date(2026, 10, 15))
 
     assert q3.gross_lifecycle_actions == {"reinstated": 1}
+    assert q3.net_population_change is None
+    assert any(finding.code == "unknown_starting_state" for finding in q3.findings)
     assert q3.contributors[0].dated_actions[0].date_basis == "event_effective_date"
     assert any(
         isinstance(entry.record, CandidateLifecycleEvent) and entry.record.event_name == "reinstated"
@@ -122,6 +123,20 @@ def test_earlier_member_snapshot_makes_later_join_date_a_reinstatement():
 
     assert q3.gross_lifecycle_actions == {"resigned": 1, "reinstated": 1}
     assert q3.contributors[0].dated_actions[-1].date_basis == "join_date"
+
+
+def test_earlier_membership_alone_confirms_reinstatement_with_undated_exit():
+    records = (
+        *snapshot("ACT", date(2026, 6, 1), "earlier-member"),
+        join(date(2026, 9, 16), date(2026, 10, 15)),
+        *snapshot("ACT", date(2026, 10, 15), "current"),
+    )
+
+    q3 = result(records, date(2026, 7, 1), date(2026, 10, 1), date(2026, 10, 15))
+
+    assert q3.gross_lifecycle_actions == {"reinstated": 1}
+    assert q3.net_population_change is None
+    assert any(finding.code == "undated_snapshot_change" for finding in q3.findings)
 
 
 def test_earlier_nonmember_account_does_not_make_join_a_reinstatement():
