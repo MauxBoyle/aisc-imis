@@ -96,6 +96,6 @@ def test_repeated_conflicting_and_invalid_sequences_become_findings():
 
     assert {finding.code for finding in result.findings} >= {
         "invalid_correction",
-        "repeated_lifecycle_event",
+        "undated_snapshot_change",
         "same_day_state_contradiction",
     }

@@ -90,6 +90,30 @@ def build_m4_resignations_reinstatements(
             and entry.record.event_name == movement.action
             for entry in movement.evidence
         )
+        prior_member_join_event = (
+            movement.action == "reinstated"
+            and any(
+                isinstance(entry.record, CandidateLifecycleEvent)
+                and entry.record.event_name == "joined"
+                for entry in movement.evidence
+            )
+            and any(
+                contributor.subject_key == movement.subject_key
+                and any(
+                    action.action == "reinstated"
+                    and action.effective_date == movement.effective_date
+                    for action in contributor.dated_actions
+                )
+                and any(
+                    isinstance(entry.record, SnapshotStateObservation)
+                    and entry.record.state_name == "is_member=True"
+                    and _day(entry.record.effective_date or entry.record.observed_date) < movement.effective_date
+                    for entry in contributor.supporting_evidence
+                    if entry.record.effective_date or entry.record.observed_date
+                )
+                for contributor in movements.movement.contributors
+            )
+        )
         prior_member_join = (
             movement.action == "reinstated"
             and movement.date_basis == "join_date"
@@ -101,7 +125,7 @@ def build_m4_resignations_reinstatements(
                 if entry.record.observed_date or entry.record.effective_date
             )
         )
-        if not (explicit_event or prior_member_join):
+        if not (explicit_event or prior_member_join or prior_member_join_event):
             findings.append(
                 MovementFinding(
                     "m4_missing_state_change_evidence",

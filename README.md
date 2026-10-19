@@ -258,8 +258,12 @@ The [M4 resignations and reinstatements guide](docs/m4-resignations-reinstatemen
 shows how to select counted M4 actions from `QuarterlyMovementResult` and write
 two CSV lists under ignored `reports/`. Effective dates place actions in the
 quarter; recorded dates and the report cutoff control which evidence is known.
-Rows keep Category and Member Type at the action, resulting operational status,
-and ledger source references. The builder checks list counts against classified
+Rows use Category and Member Type supported for the action's membership; missing
+new-membership attributes stay blank. A later Join Date or explicit `joined`
+activity after confirmed prior membership counts as a reinstatement. An unknown
+intervening exit remains a finding and leaves the population balance incomplete.
+M4 accepts that source-backed reclassification. Rows also include resulting
+operational status and ledger source references. The builder checks list counts against classified
 M4 counts and the balance terms, and returns unresolved evidence or mismatches
 as review findings.
 
@@ -497,6 +501,8 @@ explicit, immutable audit instructions: they replace evidence only for a given
 analysis and never count as lifecycle actions. The API and its examples use
 synthetic evidence; private member rows stay out of documentation.
 The first supported `Join Date` and later dated activity events place movements.
+Confirmed prior membership makes a later explicit `joined` event a reinstatement.
+New-membership attributes need their own evidence; old values are not inherited.
 Snapshots confirm states on their observation dates. An undated exit remains
 uncertain and creates no quarter-specific M4 or M5 row. Report dates and
 knowledge cutoffs are separate, and CSV rows show their selected `date_basis`.

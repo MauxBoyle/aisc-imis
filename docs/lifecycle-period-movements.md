@@ -38,9 +38,14 @@ date; `dated_actions[].date_basis` records the choice. A snapshot date only
 confirms its state on that date.
 An explicit same-day reinstatement takes precedence over a Join Date. When an
 earlier snapshot confirms membership, a later Join Date is treated as a
-reinstatement. A prior account snapshot without confirmed membership does not
+reinstatement. A later explicit `joined` activity is also a reinstatement when
+an earlier snapshot confirms membership. The new action takes Category and
+Member Type from evidence for the new membership; missing attributes stay
+unresolved rather than inheriting values from the previous membership. A prior
+account snapshot without confirmed membership does not
 establish that history. If the earlier exit or starting state is unknown, the
-reinstatement remains counted while the population balance stays incomplete.
+reinstatement remains counted, an `undated_snapshot_change` finding explains
+the unknown exit, and the population balance stays incomplete.
 For source dates before the first reviewed rule version, the earliest reviewed
 taxonomy interprets the source state or event while the original effective
 date remains the movement date.
